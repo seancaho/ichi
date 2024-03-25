@@ -41,20 +41,20 @@ Move all Ichi Script files into a directory where they can permanently live on y
 ```
 mkdir ~/Documents/code
 ```
-Then move the ichi_script folder and all contents into that directory. 
+Then move the ichi folder and all contents into that directory. 
 ```
-mv ~/Downloads/ichi_script /Documents/code/
+mv ~/Downloads/ichi /Documents/code/
 ```
 Or just use Finder and do this the easy way. ;) 
 
-Ichi Script will likely be updated from time to time. When updated files are sent, simply replace the files in the ichi_script directory with the updated versions.
+Ichi Script will likely be updated from time to time. When updated files are sent, simply replace the files in the ichi directory with the updated versions.
 
 ## 3. Install Required Packages
 The majority of dependencies that Ichi Script relies on are part of the standard library. Packages not in the standard library that need to be added to your local machine are listed at the top of the files in Ichi Script and aggregated in requirements.txt. 
 
-To add the packages, after installing Python3, move into the ichi_script directory:
+To add the packages, after installing Python3, move into the ichi directory:
 ```
-cd ~/Documents/code/ichi_script
+cd ~/Documents/code/ichi
 ``` 
 
 And then run the following commands: 
@@ -65,7 +65,7 @@ pip3 install -r requirements.txt
 ## 4. Create an alias to easily run Ichi Script 
 Creating an alias will make it fast and simple to use Ichi Script. An alias creates a shortcut to execute a command in Terminal. So rather than having to type something like this every time you want to use Ichi:
 ```
-python3 python3 /Users/<your_username>/Documents/code/ichi_script/ichi_script.py
+python3 python3 /Users/<your_username>/Documents/code/ichi/ichi_script.py
 ```
 Instead, if you create an alias, you can just use:
 ```
@@ -82,7 +82,7 @@ nano .bash_profile
 Add the following lines to the bottom of your `.bash_profile`. Be sure to change the path included to match the location and name you gave to the ichi_script.py file you created in step 3. 
 ```
 # ALIASES
-alias ichi='python3 /Users/<your_username>/Documents/code/ichi_script/ichi_script.py'
+alias ichi='python3 /Users/<your_username>/Documents/code/ichi/ichi_script.py'
 ```
 When you are finished, save your changes and exit Nano `Ctrl+X` then `Y`. Completely quit and restart Terminal to reload your `.bash_profile`. 
 
