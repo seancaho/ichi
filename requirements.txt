@@ -1,0 +1,3 @@
+# List of modules requiring installation for ichi script
+dateutil
+getch
