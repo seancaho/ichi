@@ -30,7 +30,6 @@ sum_statement = ''
 ticket_out = ''
 
 # The primary flow to pull the email header and analyze it
-# TODO: fix mixing quotes around subject line
 print(ichi_intro)
 if ichi_config.quickness:
     print(ichi_instruct)

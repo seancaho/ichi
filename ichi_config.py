@@ -5,7 +5,7 @@
 
 # CONFIG OPTIONS 
 # whether ichi requires user to hit return to submit header
-quickness = True
+quickness = False
 # whether output is the entire macro or only the metafields
 meta_only = False
 # whether the output is put back on the clipboard
