@@ -7,9 +7,9 @@
 # whether ichi requires user to hit return to submit header
 quickness = False
 # whether output is the entire macro or only the metafields
-meta_only = False
+meta_only = True
 # whether the output is put back on the clipboard
-clip_output = True
+clip_output = False
 # whether additional warnings are printed after macro
 print_warnings = True
 
