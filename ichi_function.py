@@ -14,7 +14,7 @@ import logging
 # Setup and disable/enable logging
 logging.basicConfig(level=logging.DEBUG, 
                     format=' %(asctime)s - %(levelname)s - %(message)s')
-logging.disable(logging.CRITICAL)
+# logging.disable(logging.CRITICAL)
 logging.debug('Start of program.')
 
 ip_regex = re.compile(r'(?:^|\b(?<!\.))'
@@ -80,16 +80,15 @@ def defang(defang_this):
 
 # Decodes fields
 def decode(decode_this):
-    if decode_this is str:
-        decode_working = ''
-        if decode_this:
+    if decode_this: 
+        if isinstance(decode_this, str):
+            decode_working = ''
             try: 
                 decode_working = str(make_header(decode_header(decode_this)))
             except TypeError:
                 decode_working = "_____Error in field parsing_____"
-    elif decode_this is list:
-        decode_working = []
-        if decode_this:
+        elif isinstance(decode_this, list):
+            decode_working = []
             try:
                 for i in decode_this:
                     reformat = str(make_header(decode_header(decode_this)))
@@ -365,12 +364,17 @@ def get_subject(parsed_header):
 # Sanitize any IPs, emails, or domains included in the subject line
 # Or just decode the subject and return
 def clean_subject(subj):
+    logging.debug("clean_subject START")
+    logging.debug("Passed Subj: " + subj)
     cleaned_subject = ''
-    if ip_regex.search(subj, re.I) \
-        or domain_only_regex.search(subj, re.I):
-        cleaned_subject = defang_decode(subj)
+    decoded = decode(subj)
+    logging.debug("Decoded subj: " + decoded)
+    if ip_regex.search(decoded, re.I) \
+        or domain_only_regex.search(decoded, re.I):
+        cleaned_subject = defang(decoded)
     else:
-        cleaned_subject = decode(subj)
+        cleaned_subject = decoded
+    logging.debug("clean_subject END")
     return cleaned_subject
 
 def get_reported_by(known_recip_lst):
