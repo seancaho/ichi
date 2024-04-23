@@ -475,7 +475,8 @@ def create_meta_out(fields_dict):
         metafields.append('X-Mailer: ' + fields_dict['x_mailer'])
     if fields_dict['user_agent']:
         metafields.append('User-Agent: ' + fields_dict['user_agent'])
-    metafields.append('Message_ID: ' + fields_dict['message_id'])
+    if fields_dict['message_id']:
+        metafields.append('Message_ID: ' + fields_dict['message_id'])
     metafields.append('Notable Search: ')
     metafields.append('Search Time: ')
     metafields.append('Link: ')
