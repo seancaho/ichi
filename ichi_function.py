@@ -305,7 +305,7 @@ def get_sender(p_header):
 def get_recip_list(p_header, client_dom):
     fields_to_search = ['to', 'cc', 'bcc', 'delivered-to', 'reply-to']
     recip_list = []
-    if not client_dom:
+    if not client_dom and p_header['to']:
         recip_list.append(decode(p_header['to']))
     elif client_dom:
         total_recip = []
@@ -364,21 +364,19 @@ def get_subject(parsed_header):
 # Sanitize any IPs, emails, or domains included in the subject line
 # Or just decode the subject and return
 def clean_subject(subj):
-    logging.debug("clean_subject START")
-    logging.debug("Passed Subj: " + subj)
     cleaned_subject = ''
     decoded = decode(subj)
-    logging.debug("Decoded subj: " + decoded)
     if ip_regex.search(decoded, re.I) \
         or domain_only_regex.search(decoded, re.I):
         cleaned_subject = defang(decoded)
     else:
         cleaned_subject = decoded
-    logging.debug("clean_subject END")
     return cleaned_subject
 
 def get_reported_by(known_recip_lst):
-    if len(known_recip_lst) == 1:
+    if known_recip_lst == [None]:
+        reported_by = ''
+    elif len(known_recip_lst) == 1:
         reported_by = ''.join(known_recip_lst)
     else:
         reported_by = ''
