@@ -10,7 +10,7 @@ def get_sum_state(output_dict):
         statement += (f"{output_dict['known_recip']} ")
     else:
         statement += ("a user ")
-    statement += (f"received an email with the subject line, '{output_dict['subject']}'")
+    statement += (f'''received an email with the subject line, "{output_dict['subject']}"''')
     if output_dict['from_email']:
         statement += (f" from {output_dict['from']}.")
     elif output_dict['origin_email']:
@@ -51,9 +51,11 @@ What actions did we take during investigation?
 - Analyzed email headers
 - Investigated email contents
 - Reviewed 30 day email context
+- Remediated email
 
 Raw Event
 {raw_header}
 '''
             )
+    macro = macro.strip()
     return macro
