@@ -30,6 +30,9 @@ def get_warnings(fields_dict):
     if fields_dict['subject'] == "<empty>":
         warnings_lst.append(
             "### The 'subject' field was blank or none was included")
+    if not fields_dict['message_id']:
+        warnings_lst.append(
+            "### No 'message-id' field included")
     if warnings_lst:
         warnings_lst.insert(0, intro_warn)
         warnings_lst.append('\n\n')

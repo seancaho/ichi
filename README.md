@@ -4,22 +4,16 @@ A ticketing utility for pulling and sanitizing key information from an email hea
 # Description
 Ichi Script speeds up the ticket writing process by automating field extraction and output sanitization. It is not intended to be an analysis or investigation tool. Yet. 
 
-Ichi was built to run in Terminal on Mac. With a little setup, this should be an extremely fast and straightforward means of interacting with Ichi.
+Ichi was built in Python3 to run in Terminal on Mac. With a little setup, this should be an extremely fast means of interacting with Ichi. 
 
-Using Ichi Script is intended to be straightforward. Run Ichi Script from Terminal and follow the prompts to generate your ticket template.
-
-Ichi receives primary input from the clipboard with a second input typed into Terminal. Ichi then parses the required fields and returns sanitized output. Ichi's output should be ready to copy/paste into final documentation. The script relies heavily on Python's email package for parsing and building email headers.
+Using Ichi Script is intended to be straightforward. Run Ichi Script from Terminal and follow the prompts to generate your ticket template. Ichi receives primary input from the clipboard with a second input typed into Terminal. Ichi then parses the required fields and returns sanitized output. Ichi's output should be ready to copy/paste into final documentation. The script relies heavily on Python's email package for parsing and building email headers.
 
 # Warning
 
 All Ichi Script outputs should be checked for accuracy and safety prior to submission to a client. 
 
 # Options
-Within the ichi_config.py file, there are multiple "Config Options" that will enable you to customize the outputs of ichi_script.py and make the script run more quickly once you understand its process. 
-
-All config options are booleans and should only ever be set to "True" or "False". 
-
-Adjusting other elements within ichi_config.py may break the script. 
+Some options to modify the script's behavior based on user preference are available in `ichi_config.py`. All config options are booleans and should only ever be set to "True" or "False". Adjusting other elements within ichi_config.py may break the script. 
 
 # Setup
 Ichi Script is built in Python3 and is intended to run in Terminal on Mac. To use Ichi Script most effectively, you will need to: 
@@ -30,7 +24,13 @@ Ichi Script is built in Python3 and is intended to run in Terminal on Mac. To us
 4. Create an alias to easily run Ichi Script
 
 ## 1. Install Python3
-Good guides to installing Python3 have already been created. The linked repo here includes clear instructions for installing Python on multiple platforms. 
+Python3 may already be installed on your system. To check, in terminal, use 
+`python3 --version`. If the output looks similar to the below, you can skip to step 2.
+'''
+Python 3.9.6
+'''
+
+In case Python3 is not installed, good guides to installing Python3 have already been created. The linked repo here includes clear instructions for installing Python on multiple platforms. 
 
 [Install Python3 by PackeTsar](https://github.com/PackeTsar/Install-Python/)
 
@@ -71,7 +71,7 @@ Instead, if you create an alias, you can just use:
 ```
 ichi
 ```
-To create an alias, we'll modify your `.bash_profile`. In Terminal, move to your home directory.
+To create an alias, we'll modify your `.bash_profile`[^1]. In Terminal, move to your home directory.
 ```
 cd ~/
 ```
@@ -87,3 +87,5 @@ alias ichi='python3 /Users/<your_username>/Documents/code/ichi/ichi_script.py'
 When you are finished, save your changes and exit Nano `Ctrl+X` then `Y`. Completely quit and restart Terminal to reload your `.bash_profile`. 
 
 You should now be able to type `ichi` in Terminal to run Ichi Script.
+
+[^1]: There are multiple files you might edit to create an alias. As well, the files will be different if you choose to use a shell other than Bash. Should you wish to use Zsh, the default for Mac, try googling something like "configure alias zsh". 
