@@ -16,16 +16,8 @@ import ichi_warn
 # Setup and disable/enable logging
 logging.basicConfig(level=logging.DEBUG, 
                     format=' %(asctime)s - %(levelname)s - %(message)s')
-# logging.disable(logging.CRITICAL)
+logging.disable(logging.CRITICAL)
 logging.debug('Start of program.')
-
-# TODO: add received as validation check
-# TODO: fix failure to pull received from ICHI FAIL NEW on bypass
-# TODO: account for missing message id
-# TODO: account for incorrect originating email in ____
-# TODO: strip output head and tail of linebreaks
-# TODO: add correct commenting on pbpaste / pbcopy
-# TODO: return meta-only to false and clip to true
 
 # Global variables
 raw_header_str = ''
