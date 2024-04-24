@@ -114,6 +114,7 @@ def defang_decode(defang_decode_this):
     return defang_decode_working
 
 # Puts on clipboard
+# Used from pyperclip module, originally to prevent external dependency
 def pbcopy(txt):
     task = subprocess.Popen(
         ['pbcopy'],
@@ -123,6 +124,7 @@ def pbcopy(txt):
     task.communicate(input=txt.encode('utf-8'))
 
 # Pulls from clipboard
+# Used from pyperclip module, originally to prevent external dependency
 def pbpaste():
     task = subprocess.Popen(
         ['pbpaste'],
