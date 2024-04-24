@@ -80,16 +80,15 @@ def defang(defang_this):
 
 # Decodes fields
 def decode(decode_this):
-    if decode_this is str:
-        decode_working = ''
-        if decode_this:
+    if decode_this: 
+        if isinstance(decode_this, str):
+            decode_working = ''
             try: 
                 decode_working = str(make_header(decode_header(decode_this)))
             except TypeError:
                 decode_working = "_____Error in field parsing_____"
-    elif decode_this is list:
-        decode_working = []
-        if decode_this:
+        elif isinstance(decode_this, list):
+            decode_working = []
             try:
                 for i in decode_this:
                     reformat = str(make_header(decode_header(decode_this)))
@@ -115,6 +114,7 @@ def defang_decode(defang_decode_this):
     return defang_decode_working
 
 # Puts on clipboard
+# Used from pyperclip module, originally to prevent external dependency
 def pbcopy(txt):
     task = subprocess.Popen(
         ['pbcopy'],
@@ -124,6 +124,7 @@ def pbcopy(txt):
     task.communicate(input=txt.encode('utf-8'))
 
 # Pulls from clipboard
+# Used from pyperclip module, originally to prevent external dependency
 def pbpaste():
     task = subprocess.Popen(
         ['pbpaste'],
@@ -306,7 +307,7 @@ def get_sender(p_header):
 def get_recip_list(p_header, client_dom):
     fields_to_search = ['to', 'cc', 'bcc', 'delivered-to', 'reply-to']
     recip_list = []
-    if not client_dom:
+    if not client_dom and p_header['to']:
         recip_list.append(decode(p_header['to']))
     elif client_dom:
         total_recip = []
@@ -366,15 +367,18 @@ def get_subject(parsed_header):
 # Or just decode the subject and return
 def clean_subject(subj):
     cleaned_subject = ''
-    if ip_regex.search(subj, re.I) \
-        or domain_only_regex.search(subj, re.I):
-        cleaned_subject = defang_decode(subj)
+    decoded = decode(subj)
+    if ip_regex.search(decoded, re.I) \
+        or domain_only_regex.search(decoded, re.I):
+        cleaned_subject = defang(decoded)
     else:
-        cleaned_subject = decode(subj)
+        cleaned_subject = decoded
     return cleaned_subject
 
 def get_reported_by(known_recip_lst):
-    if len(known_recip_lst) == 1:
+    if known_recip_lst == [None]:
+        reported_by = ''
+    elif len(known_recip_lst) == 1:
         reported_by = ''.join(known_recip_lst)
     else:
         reported_by = ''
@@ -473,7 +477,8 @@ def create_meta_out(fields_dict):
         metafields.append('X-Mailer: ' + fields_dict['x_mailer'])
     if fields_dict['user_agent']:
         metafields.append('User-Agent: ' + fields_dict['user_agent'])
-    metafields.append('Message_ID: ' + fields_dict['message_id'])
+    if fields_dict['message_id']:
+        metafields.append('Message_ID: ' + fields_dict['message_id'])
     metafields.append('Notable Search: ')
     metafields.append('Search Time: ')
     metafields.append('Link: ')
