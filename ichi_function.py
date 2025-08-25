@@ -85,6 +85,7 @@ def decode(decode_this):
             decode_working = ''
             try: 
                 decode_working = str(make_header(decode_header(decode_this)))
+                decode_working = decode_working.replace("\n", "")
             except TypeError:
                 decode_working = "_____Error in field parsing_____"
         elif isinstance(decode_this, list):
@@ -92,6 +93,7 @@ def decode(decode_this):
             try:
                 for i in decode_this:
                     reformat = str(make_header(decode_header(decode_this)))
+                    reformat = reformat.replace("\n", "")
                     decode_working.append(reformat)
             except TypeError:
                 decode_working = ["_____Error in field parsing_____", ]
