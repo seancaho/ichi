@@ -8,6 +8,7 @@ from email.header import decode_header, make_header
 from email.utils import parseaddr, getaddresses, formataddr
 import re
 import subprocess
+import sys
 
 ip_regex = re.compile(r'(?:^|\b(?<!\.))'
                       r'(?:1?\d?\d|2[0-4]\d|25[0-5])'
@@ -16,9 +17,27 @@ ip_regex = re.compile(r'(?:^|\b(?<!\.))'
 rfc1918_regex = re.compile(r'(^127\.)|(^10\.)|(^172\.1[6-9]\.)'
                            r'|(^172\.2[0-9]\.)|(^172\.3[0-1]\.)|(^192\.168\.)'
                            )
+ipv6_regex = re.compile(r"""
+    ([0-9a-fA-F]{1,4}:){7,7}[0-9a-fA-F]{1,4}|          # 1:2:3:4:5:6:7:8
+    ([0-9a-fA-F]{1,4}:){1,7}:|                         # 1::                              1:2:3:4:5:6:7::
+    ([0-9a-fA-F]{1,4}:){1,6}:[0-9a-fA-F]{1,4}|         # 1::8             1:2:3:4:5:6::8  1:2:3:4:5:6::8
+    ([0-9a-fA-F]{1,4}:){1,5}(:[0-9a-fA-F]{1,4}){1,2}|  # 1::7:8           1:2:3:4:5::7:8  1:2:3:4:5::8
+    ([0-9a-fA-F]{1,4}:){1,4}(:[0-9a-fA-F]{1,4}){1,3}|  # 1::6:7:8         1:2:3:4::6:7:8  1:2:3:4::8
+    ([0-9a-fA-F]{1,4}:){1,3}(:[0-9a-fA-F]{1,4}){1,4}|  # 1::5:6:7:8       1:2:3::5:6:7:8  1:2:3::8
+    ([0-9a-fA-F]{1,4}:){1,2}(:[0-9a-fA-F]{1,4}){1,5}|  # 1::4:5:6:7:8     1:2::4:5:6:7:8  1:2::8
+    [0-9a-fA-F]{1,4}:((:[0-9a-fA-F]{1,4}){1,6})|       # 1::3:4:5:6:7:8   1::3:4:5:6:7:8  1::8  
+    :((:[0-9a-fA-F]{1,4}){1,7}|:)|                     # ::2:3:4:5:6:7:8  ::2:3:4:5:6:7:8 ::8       ::     
+    fe80:(:[0-9a-fA-F]{0,4}){0,4}%[0-9a-zA-Z]{1,}|     # fe80::7:8%eth0   fe80::7:8%1     (link-local IPv6 addresses with zone index)
+    ::(ffff(:0{1,4}){0,1}:){0,1}
+    ((25[0-5]|(2[0-4]|1{0,1}[0-9]){0,1}[0-9])\.){3,3}
+    (25[0-5]|(2[0-4]|1{0,1}[0-9]){0,1}[0-9])|          # ::255.255.255.255   ::ffff:255.255.255.255  ::ffff:0:255.255.255.255  (IPv4-mapped IPv6 addresses and IPv4-translated addresses)
+    ([0-9a-fA-F]{1,4}:){1,4}:
+    ((25[0-5]|(2[0-4]|1{0,1}[0-9]){0,1}[0-9])\.){3,3}
+    (25[0-5]|(2[0-4]|1{0,1}[0-9]){0,1}[0-9])           # 2001:db8:3:4::192.0.2.33  64:ff9b::192.0.2.33 (IPv4-Embedded IPv6 Address)
+    """, re.IGNORECASE | re.VERBOSE)
 domain_only_regex = re.compile(r'^((?!-))(xn--)?[a-z0-9][a-z0-9-_]{0,61}'
                                r'[a-z0-9]{0,1}\.(xn--)?([a-z0-9\-]{1,61}'
-                               r'|[a-z0-9-]{1,30}\.[a-z]{2,})$', re.I
+                               r'|[a-z0-9-]{1,30}\.[a-z]{2,})$', re.IGNORECASE
                                )
 
 ichi_intro = ''' 
@@ -238,10 +257,31 @@ def get_client_domains(client_name, info):
 
 # Attempts to find the origin IP from the received fields
 # Currently only returns IPv4 addresses
-def get_origin_ip(str_header):
-    raw_received = str_header.get_all('received')
-    ip_from = ''
+def get_origin_ip(parsed_header):
+    '''
+    Most common fields for originating IP:
+        Received-SPF # General
+        Authentication-Results # General
+        X-Originating-IP # General
+        X-Received # Google
+        X-Forefront-Antispam-Report # Microsoft
+    '''
+    raw_received = parsed_header.get_all('received')
+    fld_xforefront_antispam = parsed_header['X-Forefront-Antispam-Report']
+    fld_rec_spf = parsed_header['Received-SPF']
+    flc_xoriginating_ip = parsed_header['X-Originating-IP']
+    fld_auth_results = parsed_header['Authentication-Results']
+    earliest_ipv4_in_hops = ''
+    print(f"fld_xforefront_antispam: {fld_xforefront_antispam}")
+    print(f"fld_xforefront_antispam - type: {type(fld_xforefront_antispam)}")
+    print(f"fld_rec_spf: {fld_rec_spf}")
+    print(f"fld_rec_spf - type: {type(fld_rec_spf)}")
+    print(f"fld_auth_results: {fld_auth_results}")
+    print(f"fld_auth_results - type: {type(fld_auth_results)}")
+    print(f"fld_x_origin_ip: {flc_xoriginating_ip}")
+    ip_xforefront_antispam = ""
     try:
+        # get earliest ipv4 in hops
         for i in reversed(raw_received):
             i_temporary = i.replace('\n', '').replace('\r', '')
             i_without_by = re.sub(r'by.*', '', i_temporary, re.S)
@@ -250,14 +290,20 @@ def get_origin_ip(str_header):
                 if rfc1918_regex.match(ips_found_in_received[-1]):
                     continue
                 else:
-                    ip_from = ips_found_in_received[-1]
+                    earliest_ipv4_in_hops = ips_found_in_received[-1]
                     break
-            elif not ip_from and len(ips_found_in_received) == 0:
-                ip_from = 'No Originating IP was found'
-            elif ip_from and len(ips_found_in_received) == 0:
+            elif not earliest_ipv4_in_hops and len(ips_found_in_received) == 0:
+                earliest_ipv4_in_hops = 'No Originating IP was found'
+            elif earliest_ipv4_in_hops and len(ips_found_in_received) == 0:
                 continue
+        # parse IP from fld_xforefront_antispam
+        ip_xforefront_antispam = re.search(r'CIP:([^;]+)', 
+                                           fld_xforefront_antispam).group(1)
     except AttributeError:
-        ip_from = '_____ERROR PARSING RECEIVED - CHECK MANUALLY_____'
+        earliest_ipv4_in_hops = '_____ERROR IN PARSING - CHECK MANUALLY_____'
+    ###### REMOVE THIS AND IMPORT ######
+    print(f"ip_xforefront_antispam: {ip_xforefront_antispam}")
+    sys.exit()
     return ip_from
 
 # Determines the address from which the SMTP flow was received
