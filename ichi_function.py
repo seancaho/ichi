@@ -222,6 +222,8 @@ def get_client_name(client_info):
                 else:
                     print(error_gen)
         except NameError:
+            print(error_gen)
+        except (ValueError, TypeError):
             print(error_type)
     return client_name
 
