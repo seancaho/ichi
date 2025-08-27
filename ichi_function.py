@@ -4,18 +4,10 @@
 from dateutil.parser import parse
 import getch
 # Built-in modules
-from email import message_from_string
 from email.header import decode_header, make_header
 from email.utils import parseaddr, getaddresses, formataddr
 import re
 import subprocess
-import logging
-
-# Setup and disable/enable logging
-logging.basicConfig(level=logging.DEBUG, 
-                    format=' %(asctime)s - %(levelname)s - %(message)s')
-logging.disable(logging.CRITICAL)
-logging.debug('Start of program.')
 
 ip_regex = re.compile(r'(?:^|\b(?<!\.))'
                       r'(?:1?\d?\d|2[0-4]\d|25[0-5])'
@@ -92,7 +84,7 @@ def decode(decode_this):
             decode_working = []
             try:
                 for i in decode_this:
-                    reformat = str(make_header(decode_header(decode_this)))
+                    reformat = str(make_header(decode_header(i)))
                     reformat = reformat.replace("\n", "")
                     decode_working.append(reformat)
             except TypeError:
@@ -137,9 +129,9 @@ def pbpaste():
     return(stdout.decode('utf-8'))
 
 # From a list, creates an aggregated string text block.
-def str_from_lst(in_list):
+def str_from_lst(in_lst):
     linebreak = '\n'
-    new_str = linebreak.join(in_list)
+    new_str = linebreak.join(in_lst)
     return new_str
 
 # Gets an email from a name + email within a message field
@@ -174,27 +166,26 @@ def capture_email_header():
             '\nPress return after copying. Do not paste manually.'\
             '\n\nTroubles? Press Ctrl+c to exit.\n')
     success_ms = ('\n\n### Success. That seems like an email header. ###\n')
-    header_string_input = ''
+    header_str_input = ''
     attempt_count = 0
-    while not header_string_input:
-        if not header_string_input:
+    while not header_str_input:
+        if not header_str_input:
             user_direct_input = pbpaste().lstrip()
             attempt_count += 1
             if re.search(
                 r'(from:\s.*)|(subject:\s.*)|(date:\s.*)', \
                     user_direct_input, re.I):
-                header_string_input = user_direct_input
+                header_str_input = user_direct_input
                 print(success_ms)
                 break
             elif re.match(r'^\s*$', user_direct_input, re.I):
-                print(re.match(r'^\s*$', user_direct_input, re.I))
                 input(error_blank)
             elif not re.search(r'(from:\s.*)|(subject:\s.*)|(date:\s.*)', \
                                 user_direct_input, re.I):
                 input(error_type)
             elif not user_direct_input:
                 input(error_content)
-    return header_string_input
+    return header_str_input
 
 # Presents client domain options and gets selection
 def get_client_name(client_info):
@@ -210,9 +201,9 @@ def get_client_name(client_info):
     for i in range(1, 6):
         try:
             print(instruct)
-            key_list = list(client_info.keys())
-            for x in range(len(key_list)):
-                print(f"({x + 1}): {key_list[x]}")
+            key_lst = list(client_info.keys())
+            for x in range(len(key_lst)):
+                print(f"({x + 1}): {key_lst[x]}")
             client_select = getch.getch()
             if client_select == '\n':
                 client_select = ''
@@ -221,16 +212,18 @@ def get_client_name(client_info):
                 break
             else:
                 client_select_int = int(client_select) - 1
-                if 0 <= client_select_int < len(key_list):
-                    client_name = key_list[client_select_int]
+                if 0 <= client_select_int < len(key_lst):
+                    client_name = key_lst[client_select_int]
                     print('\n\n### Client selected: ' + client_name + '\n\n')
                     break
                 elif client_select_int < 0 or \
-                    client_select_int > len(key_list):
+                    client_select_int > len(key_lst):
                     print(error_range)
                 else:
                     print(error_gen)
         except NameError:
+            print(error_gen)
+        except (ValueError, TypeError):
             print(error_type)
     return client_name
 
@@ -245,8 +238,8 @@ def get_client_domains(client_name, info):
 
 # Attempts to find the origin IP from the received fields
 # Currently only returns IPv4 addresses
-def get_origin_ip(string_header):
-    raw_received = string_header.get_all('received')
+def get_origin_ip(str_header):
+    raw_received = str_header.get_all('received')
     ip_from = ''
     try:
         for i in reversed(raw_received):
@@ -306,11 +299,11 @@ def get_sender(p_header):
     return sender
 
 # outputs a list of client recipients from the fields_to_search
-def get_recip_list(p_header, client_dom):
+def get_recip_lst(p_header, client_dom):
     fields_to_search = ['to', 'cc', 'bcc', 'delivered-to', 'reply-to']
-    recip_list = []
+    recip_lst = []
     if not client_dom and p_header['to']:
-        recip_list.append(decode(p_header['to']))
+        recip_lst.append(decode(p_header['to']))
     elif client_dom:
         total_recip = []
         total_recip_emails = []
@@ -318,34 +311,33 @@ def get_recip_list(p_header, client_dom):
             if p_header[field]:
                 total_recip.extend(getaddresses(p_header.get_all(field)))
         for dom in client_dom:
-            client_dom_regex = re.compile(dom, re.I)
+            esc_dom = re.escape(dom)
+            client_dom_regex = re.compile(esc_dom, re.I)
             for x in total_recip:
                 email = x[1]
                 if client_dom_regex.search(email) and email not in total_recip_emails:
-                    recip_list.append(formataddr(x))
+                    recip_lst.append(formataddr(x))
                     total_recip_emails.append(email)
                 else:
                     continue
-    return recip_list
+    return recip_lst
 
 # Take a list of field values (name, email) and return a list of emails
-def get_recip_eml_lst(list):
-    out_list = []
-    for i in list:
+def get_recip_eml_lst(recip_lst):
+    out_lst = []
+    for i in recip_lst:
         email = parseaddr(i)
-        out_list.append(email[1])
-    return out_list
+        out_lst.append(email[1])
+    return out_lst
 
 # turns the recipient list into a simple, print-ready string
-def get_recip_str(list):
+def get_recip_str(recip_lst):
     out_str = ''
-    for i in range(len(list)):
+    for i in range(len(recip_lst)):
         if not out_str:
-            out_str = list[i]
-        elif i == list[-1]:
-            out_str = (out_str + ', and ' + list[i])
+            out_str = recip_lst[i]
         else:
-            out_str = (out_str + ', ' + list[i])
+            out_str = (out_str + ', ' + recip_lst[i])
     return out_str
 
 # Pulls the date field from the earliest 'received' field.
@@ -370,8 +362,8 @@ def get_subject(parsed_header):
 def clean_subject(subj):
     cleaned_subject = ''
     decoded = decode(subj)
-    if ip_regex.search(decoded, re.I) \
-        or domain_only_regex.search(decoded, re.I):
+    if ip_regex.search(decoded) \
+        or domain_only_regex.search(decoded):
         cleaned_subject = defang(decoded)
     else:
         cleaned_subject = decoded
@@ -423,7 +415,7 @@ def create_field_output(p_header, r_header, domains):
     fields_out['to'] = p_header['to']
     fields_out['to_name'] = get_name_from(fields_out['to'])
     fields_out['to_email'] = get_email_from(fields_out['to'])
-    fields_out['known_recip_lst'] = get_recip_list(p_header, domains)
+    fields_out['known_recip_lst'] = get_recip_lst(p_header, domains)
     fields_out['found_sender'] = get_sender(p_header)
     fields_out['known_recip_eml_lst'] = \
         get_recip_eml_lst(fields_out['known_recip_lst'])
@@ -441,11 +433,11 @@ def create_field_output(p_header, r_header, domains):
     return fields_out
 
 def sanitize_field_output(unclean_fields):
-    clean_fields = unclean_fields
+    clean_fields = unclean_fields.copy()
     clean_fields['from'] = defang_decode(clean_fields['from'])
     clean_fields['found_sender'] = defang_decode(clean_fields['found_sender'])
     clean_fields['known_recip'] = decode(clean_fields['known_recip'])
-    clean_fields['known_recip_lst'] = decode(clean_fields['known_recip'])
+    clean_fields['known_recip_lst'] = decode(clean_fields['known_recip_lst'])
     clean_fields['known_recip_eml_lst'] = \
         decode(clean_fields['known_recip_eml_lst'])
     clean_fields['subject'] = clean_subject(clean_fields['subject'])
