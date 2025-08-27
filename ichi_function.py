@@ -4,18 +4,10 @@
 from dateutil.parser import parse
 import getch
 # Built-in modules
-from email import message_from_string
 from email.header import decode_header, make_header
 from email.utils import parseaddr, getaddresses, formataddr
 import re
 import subprocess
-import logging
-
-# Setup and disable/enable logging
-logging.basicConfig(level=logging.DEBUG, 
-                    format=' %(asctime)s - %(levelname)s - %(message)s')
-logging.disable(logging.CRITICAL)
-logging.debug('Start of program.')
 
 ip_regex = re.compile(r'(?:^|\b(?<!\.))'
                       r'(?:1?\d?\d|2[0-4]\d|25[0-5])'
@@ -92,7 +84,7 @@ def decode(decode_this):
             decode_working = []
             try:
                 for i in decode_this:
-                    reformat = str(make_header(decode_header(decode_this)))
+                    reformat = str(make_header(decode_header(i)))
                     reformat = reformat.replace("\n", "")
                     decode_working.append(reformat)
             except TypeError:
@@ -187,7 +179,6 @@ def capture_email_header():
                 print(success_ms)
                 break
             elif re.match(r'^\s*$', user_direct_input, re.I):
-                print(re.match(r'^\s*$', user_direct_input, re.I))
                 input(error_blank)
             elif not re.search(r'(from:\s.*)|(subject:\s.*)|(date:\s.*)', \
                                 user_direct_input, re.I):
@@ -318,7 +309,8 @@ def get_recip_list(p_header, client_dom):
             if p_header[field]:
                 total_recip.extend(getaddresses(p_header.get_all(field)))
         for dom in client_dom:
-            client_dom_regex = re.compile(dom, re.I)
+            esc_dom = re.escape(dom)
+            client_dom_regex = re.compile(esc_dom, re.I)
             for x in total_recip:
                 email = x[1]
                 if client_dom_regex.search(email) and email not in total_recip_emails:
@@ -329,23 +321,21 @@ def get_recip_list(p_header, client_dom):
     return recip_list
 
 # Take a list of field values (name, email) and return a list of emails
-def get_recip_eml_lst(list):
+def get_recip_eml_lst(recip_lst):
     out_list = []
-    for i in list:
+    for i in recip_lst:
         email = parseaddr(i)
         out_list.append(email[1])
     return out_list
 
 # turns the recipient list into a simple, print-ready string
-def get_recip_str(list):
+def get_recip_str(recip_lst):
     out_str = ''
-    for i in range(len(list)):
+    for i in range(len(recip_lst)):
         if not out_str:
-            out_str = list[i]
-        elif i == list[-1]:
-            out_str = (out_str + ', and ' + list[i])
+            out_str = recip_lst[i]
         else:
-            out_str = (out_str + ', ' + list[i])
+            out_str = (out_str + ', ' + recip_lst[i])
     return out_str
 
 # Pulls the date field from the earliest 'received' field.
@@ -370,8 +360,8 @@ def get_subject(parsed_header):
 def clean_subject(subj):
     cleaned_subject = ''
     decoded = decode(subj)
-    if ip_regex.search(decoded, re.I) \
-        or domain_only_regex.search(decoded, re.I):
+    if ip_regex.search(decoded) \
+        or domain_only_regex.search(decoded):
         cleaned_subject = defang(decoded)
     else:
         cleaned_subject = decoded
@@ -441,11 +431,11 @@ def create_field_output(p_header, r_header, domains):
     return fields_out
 
 def sanitize_field_output(unclean_fields):
-    clean_fields = unclean_fields
+    clean_fields = unclean_fields.copy()
     clean_fields['from'] = defang_decode(clean_fields['from'])
     clean_fields['found_sender'] = defang_decode(clean_fields['found_sender'])
     clean_fields['known_recip'] = decode(clean_fields['known_recip'])
-    clean_fields['known_recip_lst'] = decode(clean_fields['known_recip'])
+    clean_fields['known_recip_lst'] = decode(clean_fields['known_recip_lst'])
     clean_fields['known_recip_eml_lst'] = \
         decode(clean_fields['known_recip_eml_lst'])
     clean_fields['subject'] = clean_subject(clean_fields['subject'])
