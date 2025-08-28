@@ -8,9 +8,8 @@ from email.header import decode_header, make_header
 from email.utils import parseaddr, getaddresses, formataddr
 import re
 import subprocess
-import sys
 
-ip_regex = re.compile(r'(?:^|\b(?<!\.))'
+ipv4_regex = re.compile(r'(?:^|\b(?<!\.))'
                       r'(?:1?\d?\d|2[0-4]\d|25[0-5])'
                       r'(?:\.(?:1?\d?\d|2[0-4]\d|25[0-5])){3}(?=$|[^\w.])'
                       )
@@ -260,33 +259,19 @@ def get_client_domains(client_name, info):
 def get_origin_ip(parsed_header):
     '''
     Most common fields for originating IP:
+        X-Forefront-Antispam-Report # Microsoft
         Received-SPF # General
         Authentication-Results # General
-        X-Originating-IP # General
-        X-Received # Google
-        X-Forefront-Antispam-Report # Microsoft
+        X-Originating-IP # Antiquated
     '''
-    raw_received = parsed_header.get_all('received')
-    fld_xforefront_antispam = parsed_header['X-Forefront-Antispam-Report']
-    fld_all_rec_spf = parsed_header.get_all('Received-SPF')
-    flc_xoriginating_ip = parsed_header['X-Originating-IP']
-    fld_auth_results = parsed_header['Authentication-Results']
+    # parse earliest ipv4 in hops
     earliest_ipv4_in_hops = ''
-    print(f"fld_xforefront_antispam: {fld_xforefront_antispam}")
-    print(f"fld_xforefront_antispam - type: {type(fld_xforefront_antispam)}")
-    print(f"fld_rec_spf: {fld_all_rec_spf}")
-    print(f"fld_rec_spf - type: {type(fld_all_rec_spf)}")
-    print(f"fld_auth_results: {fld_auth_results}")
-    print(f"fld_auth_results - type: {type(fld_auth_results)}")
-    print(f"fld_x_origin_ip: {flc_xoriginating_ip}")
-    ip_xforefront_antispam = ''
-    ip_all_rec_spf = ''
+    raw_received = parsed_header.get_all('received')
     try:
-        # get earliest ipv4 in hops
         for i in reversed(raw_received):
             i_temporary = i.replace('\n', '').replace('\r', '')
             i_without_by = re.sub(r'by.*', '', i_temporary, re.S)
-            ips_found_in_received = ip_regex.findall(i_without_by)
+            ips_found_in_received = ipv4_regex.findall(i_without_by)
             if len(ips_found_in_received) > 0:
                 if rfc1918_regex.match(ips_found_in_received[-1]):
                     continue
@@ -294,28 +279,44 @@ def get_origin_ip(parsed_header):
                     earliest_ipv4_in_hops = ips_found_in_received[-1]
                     break
             elif not earliest_ipv4_in_hops and len(ips_found_in_received) == 0:
-                earliest_ipv4_in_hops = 'No Originating IP was found'
+                continue
             elif earliest_ipv4_in_hops and len(ips_found_in_received) == 0:
                 continue
-        # parse IP from X-Forefront-Antispam-Report
-        if fld_xforefront_antispam:
-            ip_xforefront_antispam = re.search(r'CIP:([^;]+)', 
-                                        fld_xforefront_antispam).group(1)
-        # parse client-ip from Received-SPF
-        if fld_all_rec_spf:
-            for rec_spf_rec in fld_all_rec_spf:
-                testip_spf_rec = re.search(r'client-ip=([^;]+)', 
-                                        rec_spf_rec).group(1)
-                if testip_spf_rec:
-                    ip_all_rec_spf = testip_spf_rec
-                if ip_all_rec_spf:
-                    break
-    except AttributeError:
-        earliest_ipv4_in_hops = '_____ERROR IN PARSING - CHECK MANUALLY_____'
-    ###### REMOVE THIS AND IMPORT ######
-    print(f"ip_xforefront_antispam: {ip_xforefront_antispam}")
-    print(f"ip_all_rec_spf: {ip_all_rec_spf}")
-    sys.exit()
+    except (AttributeError, TypeError):
+        earliest_ipv4_in_hops = ''
+
+    # parse IP from X-Forefront-Antispam-Report
+    ip_xforefront_antispam = ''
+    fld_xforefront_antispam = parsed_header['X-Forefront-Antispam-Report']
+    if fld_xforefront_antispam:
+        ip_xforefront_antispam = re.search(r'CIP:([^;]+)', 
+                                    fld_xforefront_antispam).group(1)
+        
+    # parse client-ip from Received-SPF
+    ip_all_rec_spf = ''
+    fld_all_rec_spf = parsed_header.get_all('Received-SPF')
+    if fld_all_rec_spf:
+        for rec_spf_rec in fld_all_rec_spf:
+            testip_spf_rec = re.search(r'client-ip=([^;]+)', 
+                                    rec_spf_rec).group(1)
+            if testip_spf_rec:
+                ip_all_rec_spf = testip_spf_rec
+            if ip_all_rec_spf:
+                break
+
+    # Analyze available records and determine origin IP
+    ip_from = 'Originating IP was not found'
+    ip_from_determined_by = '' # for debuging use
+    if ip_xforefront_antispam and ip_xforefront_antispam != '255.255.255.255':
+        ip_from = ip_xforefront_antispam
+        ip_from_determined_by = 'ip_xforefront_antispam'
+    elif ip_all_rec_spf:
+        ip_from = ip_all_rec_spf
+        ip_from_determined_by = 'ip_all_rec_spf'
+    elif earliest_ipv4_in_hops:
+        ip_from = earliest_ipv4_in_hops
+        ip_from_determined_by = 'earliest_ipv4_in_hops'
+
     return ip_from
 
 
@@ -421,7 +422,7 @@ def get_subject(parsed_header):
 def clean_subject(subj):
     cleaned_subject = ''
     decoded = decode(subj)
-    if ip_regex.search(decoded) \
+    if ipv4_regex.search(decoded) \
         or domain_only_regex.search(decoded):
         cleaned_subject = defang(decoded)
     else:
