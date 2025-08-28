@@ -38,6 +38,9 @@ domain_only_regex = re.compile(r'^((?!-))(xn--)?[a-z0-9][a-z0-9-_]{0,61}'
                                r'[a-z0-9]{0,1}\.(xn--)?([a-z0-9\-]{1,61}'
                                r'|[a-z0-9-]{1,30}\.[a-z]{2,})$', re.IGNORECASE
                                )
+regex_for_smtpfrom = re.compile(r'(smtp\.mailfrom\=)'
+                                r'([^=\s\[]*@[a-z0-9\-]*\.[^;>\)\]\s]*)', re.I
+                                )
 
 ichi_intro = ''' 
 ======
@@ -324,9 +327,6 @@ def get_origin_ip(parsed_header):
 # Returns the 'from' field if all else fails
 def get_origin_email(p_header, r_header):
     try:
-        regex_for_smtpfrom = re.compile(r'(smtp\.mailfrom\=)'
-                                        r'([^=\s\[]*@[a-z0-9\-]*\.[^;>\)\]\s]*)', re.I
-                                        )
         origin_email = ''
         if regex_for_smtpfrom.search(r_header):
             origin_email = regex_for_smtpfrom.search(r_header).group(2)
@@ -495,6 +495,8 @@ def create_field_output(p_header, r_header, domains):
 def sanitize_field_output(unclean_fields):
     clean_fields = unclean_fields.copy()
     clean_fields['from'] = defang_decode(clean_fields['from'])
+    clean_fields['from_name'] = defang_decode(clean_fields['from_name'])
+    clean_fields['from_email'] = defang_decode(clean_fields['from_email'])
     clean_fields['found_sender'] = defang_decode(clean_fields['found_sender'])
     clean_fields['known_recip'] = decode(clean_fields['known_recip'])
     clean_fields['known_recip_lst'] = decode(clean_fields['known_recip_lst'])
