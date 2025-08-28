@@ -9,16 +9,34 @@ from email.utils import parseaddr, getaddresses, formataddr
 import re
 import subprocess
 
-ip_regex = re.compile(r'(?:^|\b(?<!\.))'
+ipv4_regex = re.compile(r'(?:^|\b(?<!\.))'
                       r'(?:1?\d?\d|2[0-4]\d|25[0-5])'
                       r'(?:\.(?:1?\d?\d|2[0-4]\d|25[0-5])){3}(?=$|[^\w.])'
                       )
 rfc1918_regex = re.compile(r'(^127\.)|(^10\.)|(^172\.1[6-9]\.)'
                            r'|(^172\.2[0-9]\.)|(^172\.3[0-1]\.)|(^192\.168\.)'
                            )
+ipv6_regex = re.compile(r"""
+    ([0-9a-fA-F]{1,4}:){7,7}[0-9a-fA-F]{1,4}|          # 1:2:3:4:5:6:7:8
+    ([0-9a-fA-F]{1,4}:){1,7}:|                         # 1::                              1:2:3:4:5:6:7::
+    ([0-9a-fA-F]{1,4}:){1,6}:[0-9a-fA-F]{1,4}|         # 1::8             1:2:3:4:5:6::8  1:2:3:4:5:6::8
+    ([0-9a-fA-F]{1,4}:){1,5}(:[0-9a-fA-F]{1,4}){1,2}|  # 1::7:8           1:2:3:4:5::7:8  1:2:3:4:5::8
+    ([0-9a-fA-F]{1,4}:){1,4}(:[0-9a-fA-F]{1,4}){1,3}|  # 1::6:7:8         1:2:3:4::6:7:8  1:2:3:4::8
+    ([0-9a-fA-F]{1,4}:){1,3}(:[0-9a-fA-F]{1,4}){1,4}|  # 1::5:6:7:8       1:2:3::5:6:7:8  1:2:3::8
+    ([0-9a-fA-F]{1,4}:){1,2}(:[0-9a-fA-F]{1,4}){1,5}|  # 1::4:5:6:7:8     1:2::4:5:6:7:8  1:2::8
+    [0-9a-fA-F]{1,4}:((:[0-9a-fA-F]{1,4}){1,6})|       # 1::3:4:5:6:7:8   1::3:4:5:6:7:8  1::8  
+    :((:[0-9a-fA-F]{1,4}){1,7}|:)|                     # ::2:3:4:5:6:7:8  ::2:3:4:5:6:7:8 ::8       ::     
+    fe80:(:[0-9a-fA-F]{0,4}){0,4}%[0-9a-zA-Z]{1,}|     # fe80::7:8%eth0   fe80::7:8%1     (link-local IPv6 addresses with zone index)
+    ::(ffff(:0{1,4}){0,1}:){0,1}
+    ((25[0-5]|(2[0-4]|1{0,1}[0-9]){0,1}[0-9])\.){3,3}
+    (25[0-5]|(2[0-4]|1{0,1}[0-9]){0,1}[0-9])|          # ::255.255.255.255   ::ffff:255.255.255.255  ::ffff:0:255.255.255.255  (IPv4-mapped IPv6 addresses and IPv4-translated addresses)
+    ([0-9a-fA-F]{1,4}:){1,4}:
+    ((25[0-5]|(2[0-4]|1{0,1}[0-9]){0,1}[0-9])\.){3,3}
+    (25[0-5]|(2[0-4]|1{0,1}[0-9]){0,1}[0-9])           # 2001:db8:3:4::192.0.2.33  64:ff9b::192.0.2.33 (IPv4-Embedded IPv6 Address)
+    """, re.IGNORECASE | re.VERBOSE)
 domain_only_regex = re.compile(r'^((?!-))(xn--)?[a-z0-9][a-z0-9-_]{0,61}'
                                r'[a-z0-9]{0,1}\.(xn--)?([a-z0-9\-]{1,61}'
-                               r'|[a-z0-9-]{1,30}\.[a-z]{2,})$', re.I
+                               r'|[a-z0-9-]{1,30}\.[a-z]{2,})$', re.IGNORECASE
                                )
 
 ichi_intro = ''' 
@@ -238,27 +256,69 @@ def get_client_domains(client_name, info):
 
 # Attempts to find the origin IP from the received fields
 # Currently only returns IPv4 addresses
-def get_origin_ip(str_header):
-    raw_received = str_header.get_all('received')
-    ip_from = ''
+def get_origin_ip(parsed_header):
+    '''
+    Most common fields for originating IP:
+        X-Forefront-Antispam-Report # Microsoft
+        Received-SPF # General
+        Authentication-Results # General
+        X-Originating-IP # Antiquated
+    '''
+    # parse earliest ipv4 in hops
+    earliest_ipv4_in_hops = ''
+    raw_received = parsed_header.get_all('received')
     try:
         for i in reversed(raw_received):
             i_temporary = i.replace('\n', '').replace('\r', '')
             i_without_by = re.sub(r'by.*', '', i_temporary, re.S)
-            ips_found_in_received = ip_regex.findall(i_without_by)
+            ips_found_in_received = ipv4_regex.findall(i_without_by)
             if len(ips_found_in_received) > 0:
                 if rfc1918_regex.match(ips_found_in_received[-1]):
                     continue
                 else:
-                    ip_from = ips_found_in_received[-1]
+                    earliest_ipv4_in_hops = ips_found_in_received[-1]
                     break
-            elif not ip_from and len(ips_found_in_received) == 0:
-                ip_from = 'No Originating IP was found'
-            elif ip_from and len(ips_found_in_received) == 0:
+            elif not earliest_ipv4_in_hops and len(ips_found_in_received) == 0:
                 continue
-    except AttributeError:
-        ip_from = '_____ERROR PARSING RECEIVED - CHECK MANUALLY_____'
+            elif earliest_ipv4_in_hops and len(ips_found_in_received) == 0:
+                continue
+    except (AttributeError, TypeError):
+        earliest_ipv4_in_hops = ''
+
+    # parse IP from X-Forefront-Antispam-Report
+    ip_xforefront_antispam = ''
+    fld_xforefront_antispam = parsed_header['X-Forefront-Antispam-Report']
+    if fld_xforefront_antispam:
+        ip_xforefront_antispam = re.search(r'CIP:([^;]+)', 
+                                    fld_xforefront_antispam).group(1)
+        
+    # parse client-ip from Received-SPF
+    ip_all_rec_spf = ''
+    fld_all_rec_spf = parsed_header.get_all('Received-SPF')
+    if fld_all_rec_spf:
+        for rec_spf_rec in fld_all_rec_spf:
+            testip_spf_rec = re.search(r'client-ip=([^;]+)', 
+                                    rec_spf_rec).group(1)
+            if testip_spf_rec:
+                ip_all_rec_spf = testip_spf_rec
+            if ip_all_rec_spf:
+                break
+
+    # Analyze available records and determine origin IP
+    ip_from = 'Originating IP was not found'
+    ip_from_determined_by = '' # for debuging use
+    if ip_xforefront_antispam and ip_xforefront_antispam != '255.255.255.255':
+        ip_from = ip_xforefront_antispam
+        ip_from_determined_by = 'ip_xforefront_antispam'
+    elif ip_all_rec_spf:
+        ip_from = ip_all_rec_spf
+        ip_from_determined_by = 'ip_all_rec_spf'
+    elif earliest_ipv4_in_hops:
+        ip_from = earliest_ipv4_in_hops
+        ip_from_determined_by = 'earliest_ipv4_in_hops'
+
     return ip_from
+
 
 # Determines the address from which the SMTP flow was received
 # Returns the 'from' field if all else fails
@@ -362,7 +422,7 @@ def get_subject(parsed_header):
 def clean_subject(subj):
     cleaned_subject = ''
     decoded = decode(subj)
-    if ip_regex.search(decoded) \
+    if ipv4_regex.search(decoded) \
         or domain_only_regex.search(decoded):
         cleaned_subject = defang(decoded)
     else:
