@@ -268,18 +268,19 @@ def get_origin_ip(parsed_header):
     '''
     raw_received = parsed_header.get_all('received')
     fld_xforefront_antispam = parsed_header['X-Forefront-Antispam-Report']
-    fld_rec_spf = parsed_header['Received-SPF']
+    fld_all_rec_spf = parsed_header.get_all('Received-SPF')
     flc_xoriginating_ip = parsed_header['X-Originating-IP']
     fld_auth_results = parsed_header['Authentication-Results']
     earliest_ipv4_in_hops = ''
     print(f"fld_xforefront_antispam: {fld_xforefront_antispam}")
     print(f"fld_xforefront_antispam - type: {type(fld_xforefront_antispam)}")
-    print(f"fld_rec_spf: {fld_rec_spf}")
-    print(f"fld_rec_spf - type: {type(fld_rec_spf)}")
+    print(f"fld_rec_spf: {fld_all_rec_spf}")
+    print(f"fld_rec_spf - type: {type(fld_all_rec_spf)}")
     print(f"fld_auth_results: {fld_auth_results}")
     print(f"fld_auth_results - type: {type(fld_auth_results)}")
     print(f"fld_x_origin_ip: {flc_xoriginating_ip}")
-    ip_xforefront_antispam = ""
+    ip_xforefront_antispam = ''
+    ip_all_rec_spf = ''
     try:
         # get earliest ipv4 in hops
         for i in reversed(raw_received):
@@ -296,15 +297,27 @@ def get_origin_ip(parsed_header):
                 earliest_ipv4_in_hops = 'No Originating IP was found'
             elif earliest_ipv4_in_hops and len(ips_found_in_received) == 0:
                 continue
-        # parse IP from fld_xforefront_antispam
-        ip_xforefront_antispam = re.search(r'CIP:([^;]+)', 
-                                           fld_xforefront_antispam).group(1)
+        # parse IP from X-Forefront-Antispam-Report
+        if fld_xforefront_antispam:
+            ip_xforefront_antispam = re.search(r'CIP:([^;]+)', 
+                                        fld_xforefront_antispam).group(1)
+        # parse client-ip from Received-SPF
+        if fld_all_rec_spf:
+            for rec_spf_rec in fld_all_rec_spf:
+                testip_spf_rec = re.search(r'client-ip=([^;]+)', 
+                                        rec_spf_rec).group(1)
+                if testip_spf_rec:
+                    ip_all_rec_spf = testip_spf_rec
+                if ip_all_rec_spf:
+                    break
     except AttributeError:
         earliest_ipv4_in_hops = '_____ERROR IN PARSING - CHECK MANUALLY_____'
     ###### REMOVE THIS AND IMPORT ######
     print(f"ip_xforefront_antispam: {ip_xforefront_antispam}")
+    print(f"ip_all_rec_spf: {ip_all_rec_spf}")
     sys.exit()
     return ip_from
+
 
 # Determines the address from which the SMTP flow was received
 # Returns the 'from' field if all else fails
