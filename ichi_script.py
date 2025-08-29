@@ -53,7 +53,7 @@ def main():
     clean_field_out = ichi_fn.sanitize_field_output(evil_field_out)
     primary_meta_out = ichi_fn.create_meta_out(clean_field_out)
     printable_meta = ichi_fn.str_from_lst(primary_meta_out)
-    sum_statement = ichi_macro.get_sum_state(clean_field_out)
+    sum_statement = ichi_macro.get_sum_state(clean_field_out, ichi_config.truncate_summary)
     ticket_out = ichi_macro.get_full_macro(sum_statement, 
                                     printable_meta, 
                                     raw_header_str,

@@ -439,6 +439,13 @@ def get_subject(parsed_header):
         original_subject = "<empty>"
     return original_subject
 
+def get_dmn_from_addy(input_addy):
+    if isinstance(input_addy, str):
+        dmn = input_addy.split('@')[1]
+    elif isinstance(input_addy, tuple):
+        dmn = input_addy[1].split('@')[1]
+    return dmn
+
 # Sanitize any IPs, emails, or domains included in the subject line
 # Or just decode the subject and return
 def clean_subject(subj):
@@ -497,9 +504,11 @@ def create_field_output(p_header, r_header, domains):
     fields_out['from'] = p_header['from']
     fields_out['from_name'] = get_name_from(fields_out['from'])
     fields_out['from_email'] = get_email_from(fields_out['from'])
+    fields_out['from_dmn'] = get_dmn_from_addy(fields_out['from_email'])
     fields_out['found_sender'] = get_sender(p_header)
     fields_out['found_sender_name'] = get_name_from(fields_out['found_sender'])
     fields_out['found_sender_eml'] = get_email_from(fields_out['found_sender'])
+    fields_out['found_sender_dmn'] = get_dmn_from_addy(fields_out['found_sender_eml'])
     fields_out['to'] = p_header['to']
     fields_out['to_name'] = get_name_from(fields_out['to'])
     fields_out['to_email'] = get_email_from(fields_out['to'])
@@ -513,6 +522,7 @@ def create_field_output(p_header, r_header, domains):
     fields_out['date'] = p_header['date']
     fields_out['return_path'] = p_header['return-path']
     fields_out['origin_email'] = get_origin_email(p_header, r_header)
+    fields_out['origin_email_dmn'] = get_dmn_from_addy(fields_out['origin_email'])
     fields_out['origin_ip'] = get_origin_ip(p_header)
     fields_out['reply_to'] = p_header['reply-to']
     fields_out['x_mailer'] = p_header['x-mailer']
@@ -525,9 +535,11 @@ def sanitize_field_output(unclean_fields):
     clean_fields['from'] = defang_decode(clean_fields['from'])
     clean_fields['from_name'] = defang_decode(clean_fields['from_name'])
     clean_fields['from_email'] = defang_decode(clean_fields['from_email'])
+    clean_fields['from_dmn'] = defang_decode(clean_fields['from_dmn'])
     clean_fields['found_sender'] = defang_decode(clean_fields['found_sender'])
-    clean_fields['found_sender_name'] = defang_decode(clean_fields['found_sender'])
-    clean_fields['found_sender_eml'] = defang_decode(clean_fields['found_sender'])
+    clean_fields['found_sender_name'] = defang_decode(clean_fields['found_sender_name'])
+    clean_fields['found_sender_eml'] = defang_decode(clean_fields['found_sender_eml'])
+    clean_fields['found_sender_dmn'] = defang_decode(clean_fields['found_sender_dmn'])
     clean_fields['known_recip_lst'] = decode(clean_fields['known_recip_lst'])
     clean_fields['known_recip_eml_lst'] = \
         decode(clean_fields['known_recip_eml_lst'])
@@ -539,6 +551,7 @@ def sanitize_field_output(unclean_fields):
     clean_fields['to'] = decode(clean_fields['to'])
     clean_fields['return_path'] = defang(clean_fields['return_path'])
     clean_fields['origin_email'] = defang_decode(clean_fields['origin_email'])
+    clean_fields['origin_email_dmn'] = defang_decode(clean_fields['origin_email_dmn'])
     clean_fields['origin_ip'] = defang(clean_fields['origin_ip'])
     clean_fields['reply_to'] = defang_decode(clean_fields['reply_to'])
     clean_fields['message_id'] = decode(clean_fields['message_id'])
