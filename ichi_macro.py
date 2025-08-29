@@ -7,7 +7,7 @@ def get_sum_state(output_dict):
         count = len(output_dict['known_recip_eml_lst'])
         statement += (f"{count} users ")
     elif len(output_dict['known_recip_eml_lst']) == 1:
-        statement += (f"{output_dict['known_recip']} ")
+        statement += (f"{output_dict['known_recip_eml_str']} ")
     else:
         statement += ("a user ")
     statement += (f'''received an email with the subject line, "{output_dict['subject']}"''')
@@ -35,9 +35,6 @@ Remediation & Mitigation Outstanding (to be performed by {client}):
 {meta}
 
 Behaviors:
-
-Impersonation / Spoofing
-<Details of impersonation (individual, domain, actual spoofing, etc.)>
 
 Analysis & Response
 
