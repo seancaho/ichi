@@ -135,6 +135,17 @@ def defang_decode(defang_decode_this):
         defang_decode_working = defang_decode_this
     return defang_decode_working
 
+def truncate_str(long_str):
+    trunc_length = 100
+    try:
+        if len(long_str) > 100:
+            short_str = long_str[:97].rstrip() + "..."
+            return short_str
+        else:
+            return long_str
+    except TypeError:
+        return long_str
+
 # Puts on clipboard
 # Used from pyperclip module, originally to prevent external dependency
 def pbcopy(txt):
@@ -325,7 +336,6 @@ def get_origin_ip(parsed_header):
     elif earliest_ipv4_in_hops:
         ip_from = earliest_ipv4_in_hops
         ip_from_determined_by = 'earliest_ipv4_in_hops'
-
     return ip_from
 
 
@@ -488,6 +498,8 @@ def create_field_output(p_header, r_header, domains):
     fields_out['from_name'] = get_name_from(fields_out['from'])
     fields_out['from_email'] = get_email_from(fields_out['from'])
     fields_out['found_sender'] = get_sender(p_header)
+    fields_out['found_sender_name'] = get_name_from(fields_out['found_sender'])
+    fields_out['found_sender_eml'] = get_email_from(fields_out['found_sender'])
     fields_out['to'] = p_header['to']
     fields_out['to_name'] = get_name_from(fields_out['to'])
     fields_out['to_email'] = get_email_from(fields_out['to'])
@@ -514,6 +526,8 @@ def sanitize_field_output(unclean_fields):
     clean_fields['from_name'] = defang_decode(clean_fields['from_name'])
     clean_fields['from_email'] = defang_decode(clean_fields['from_email'])
     clean_fields['found_sender'] = defang_decode(clean_fields['found_sender'])
+    clean_fields['found_sender_name'] = defang_decode(clean_fields['found_sender'])
+    clean_fields['found_sender_eml'] = defang_decode(clean_fields['found_sender'])
     clean_fields['known_recip_lst'] = decode(clean_fields['known_recip_lst'])
     clean_fields['known_recip_eml_lst'] = \
         decode(clean_fields['known_recip_eml_lst'])
@@ -521,6 +535,7 @@ def sanitize_field_output(unclean_fields):
     clean_fields['known_recip_eml_str'] = \
         decode(clean_fields['known_recip_eml_str'])
     clean_fields['subject'] = clean_subject(clean_fields['subject'])
+    clean_fields['trunc_subject'] = truncate_str(clean_fields['subject'])
     clean_fields['to'] = decode(clean_fields['to'])
     clean_fields['return_path'] = defang(clean_fields['return_path'])
     clean_fields['origin_email'] = defang_decode(clean_fields['origin_email'])

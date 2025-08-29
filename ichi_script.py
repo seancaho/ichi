@@ -51,19 +51,6 @@ def main():
     if ichi_fn.recip_found_check(evil_field_out) == False:
         evil_field_out = ichi_fn.manual_get_recip(evil_field_out)
     clean_field_out = ichi_fn.sanitize_field_output(evil_field_out)
-
-    # debugging
-    print("\nknown_recip_str: ")
-    print(clean_field_out['known_recip_str'])
-    print("\nknown_recip_lst: ")
-    print(clean_field_out['known_recip_lst'])
-    print("\nknown_recip_eml_lst: ")
-    print(clean_field_out['known_recip_eml_lst'])
-    print("\nknown_recip_eml_str: ")
-    print(clean_field_out['known_recip_eml_str'])
-#    sys.exit()
-    # debugging
-
     primary_meta_out = ichi_fn.create_meta_out(clean_field_out)
     printable_meta = ichi_fn.str_from_lst(primary_meta_out)
     sum_statement = ichi_macro.get_sum_state(clean_field_out)
