@@ -22,7 +22,7 @@ def get_warnings(fields_dict):
     if not fields_dict['date']:
         warnings_lst.append(
             "### No 'date' field included")
-    if not fields_dict['known_recip']:
+    if not fields_dict['known_recip_str']:
         warnings_lst.append(
             "### No email addresses with the specified client domain "\
             "were found in this email header. The original recipient "\
