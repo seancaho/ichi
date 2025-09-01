@@ -8,6 +8,7 @@ from email.header import decode_header, make_header
 from email.utils import parseaddr, getaddresses, formataddr
 import re
 import subprocess
+import sys
 
 ipv4_regex = re.compile(r'(?:^|\b(?<!\.))'
                       r'(?:1?\d?\d|2[0-4]\d|25[0-5])'
@@ -312,17 +313,13 @@ def get_origin_ip(parsed_header):
         ip_xforefront_antispam = re.search(r'CIP:([^;]+)', 
                                     fld_xforefront_antispam).group(1)
         
-    # parse client-ip from Received-SPF
-    ip_all_rec_spf = ''
-    fld_all_rec_spf = parsed_header.get_all('Received-SPF')
-    if fld_all_rec_spf:
-        for rec_spf_rec in fld_all_rec_spf:
-            testip_spf_rec = re.search(r'client-ip=([^;]+)', 
-                                    rec_spf_rec).group(1)
-            if testip_spf_rec:
-                ip_all_rec_spf = testip_spf_rec
-            if ip_all_rec_spf:
-                break
+    # return the first 'client-ip' found from all Received-SPF records
+    client_ip_regex = re.compile(r'client-ip=([^;]+)', re.IGNORECASE)
+    all_rec_spf = parsed_header.get_all('Received-SPF') or []
+    m_all_rec_spf = next((m for rec_spf in all_rec_spf 
+              if (m := client_ip_regex.search(rec_spf))), None)
+    ip_all_rec_spf = (m_all_rec_spf.group(1).strip(' []') 
+                      if m_all_rec_spf else None)
 
     # Analyze available records and determine origin IP
     ip_from = 'Originating IP was not found'
