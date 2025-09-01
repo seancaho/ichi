@@ -38,6 +38,9 @@ domain_only_regex = re.compile(r'^((?!-))(xn--)?[a-z0-9][a-z0-9-_]{0,61}'
                                r'[a-z0-9]{0,1}\.(xn--)?([a-z0-9\-]{1,61}'
                                r'|[a-z0-9-]{1,30}\.[a-z]{2,})$', re.IGNORECASE
                                )
+regex_for_smtpfrom = re.compile(r'(smtp\.mailfrom\=)'
+                                r'([^=\s\[]*@[a-z0-9\-]*\.[^;>\)\]\s]*)', re.I
+                                )
 
 ichi_intro = ''' 
 ======
@@ -90,6 +93,7 @@ def defang(defang_this):
 
 # Decodes fields
 def decode(decode_this):
+    decode_working = []
     if decode_this: 
         if isinstance(decode_this, str):
             decode_working = ''
@@ -102,9 +106,15 @@ def decode(decode_this):
             decode_working = []
             try:
                 for i in decode_this:
-                    reformat = str(make_header(decode_header(i)))
-                    reformat = reformat.replace("\n", "")
-                    decode_working.append(reformat)
+                    if isinstance(i, str):
+                        reformat = str(make_header(decode_header(i)))
+                        reformat = reformat.replace("\n", "")
+                        decode_working.append(reformat)
+                    elif isinstance(i, tuple):
+                        reformat = formataddr(i)
+                        reformat = str(make_header(decode_header(reformat)))
+                        reformat = reformat.replace("\n", "")
+                        decode_working.append(reformat)
             except TypeError:
                 decode_working = ["_____Error in field parsing_____", ]
     else: 
@@ -124,6 +134,17 @@ def defang_decode(defang_decode_this):
     else:
         defang_decode_working = defang_decode_this
     return defang_decode_working
+
+def truncate_str(long_str):
+    trunc_length = 100
+    try:
+        if len(long_str) > 100:
+            short_str = long_str[:97].rstrip() + "..."
+            return short_str
+        else:
+            return long_str
+    except TypeError:
+        return long_str
 
 # Puts on clipboard
 # Used from pyperclip module, originally to prevent external dependency
@@ -194,7 +215,6 @@ def capture_email_header():
                 r'(from:\s.*)|(subject:\s.*)|(date:\s.*)', \
                     user_direct_input, re.I):
                 header_str_input = user_direct_input
-                print(success_ms)
                 break
             elif re.match(r'^\s*$', user_direct_input, re.I):
                 input(error_blank)
@@ -316,7 +336,6 @@ def get_origin_ip(parsed_header):
     elif earliest_ipv4_in_hops:
         ip_from = earliest_ipv4_in_hops
         ip_from_determined_by = 'earliest_ipv4_in_hops'
-
     return ip_from
 
 
@@ -324,9 +343,6 @@ def get_origin_ip(parsed_header):
 # Returns the 'from' field if all else fails
 def get_origin_email(p_header, r_header):
     try:
-        regex_for_smtpfrom = re.compile(r'(smtp\.mailfrom\=)'
-                                        r'([^=\s\[]*@[a-z0-9\-]*\.[^;>\)\]\s]*)', re.I
-                                        )
         origin_email = ''
         if regex_for_smtpfrom.search(r_header):
             origin_email = regex_for_smtpfrom.search(r_header).group(2)
@@ -363,7 +379,7 @@ def get_recip_lst(p_header, client_dom):
     fields_to_search = ['to', 'cc', 'bcc', 'delivered-to', 'reply-to']
     recip_lst = []
     if not client_dom and p_header['to']:
-        recip_lst.append(decode(p_header['to']))
+        recip_lst.extend(getaddresses(p_header.get_all('to')))
     elif client_dom:
         total_recip = []
         total_recip_emails = []
@@ -376,28 +392,34 @@ def get_recip_lst(p_header, client_dom):
             for x in total_recip:
                 email = x[1]
                 if client_dom_regex.search(email) and email not in total_recip_emails:
-                    recip_lst.append(formataddr(x))
+                    recip_lst.append(x)
                     total_recip_emails.append(email)
                 else:
                     continue
     return recip_lst
 
 # Take a list of field values (name, email) and return a list of emails
-def get_recip_eml_lst(recip_lst):
+def get_recip_eml_lst(lst_of_recip):
     out_lst = []
-    for i in recip_lst:
-        email = parseaddr(i)
-        out_lst.append(email[1])
+    for fld_tuple in lst_of_recip:
+        email = fld_tuple[1]
+        out_lst.append(email)
     return out_lst
 
 # turns the recipient list into a simple, print-ready string
 def get_recip_str(recip_lst):
     out_str = ''
-    for i in range(len(recip_lst)):
-        if not out_str:
-            out_str = recip_lst[i]
-        else:
-            out_str = (out_str + ', ' + recip_lst[i])
+    for i in recip_lst:
+        if isinstance(i,tuple):
+            if not out_str:
+                out_str = formataddr(i)
+            else:
+                out_str = (out_str + ', ' + formataddr(i))
+        elif isinstance(i, str):
+            if not out_str:
+                out_str = i
+            else:
+                out_str = (out_str + ', ' + i)            
     return out_str
 
 # Pulls the date field from the earliest 'received' field.
@@ -417,6 +439,13 @@ def get_subject(parsed_header):
         original_subject = "<empty>"
     return original_subject
 
+def get_dmn_from_addy(input_addy):
+    if isinstance(input_addy, str):
+        dmn = input_addy.split('@')[1]
+    elif isinstance(input_addy, tuple):
+        dmn = input_addy[1].split('@')[1]
+    return dmn
+
 # Sanitize any IPs, emails, or domains included in the subject line
 # Or just decode the subject and return
 def clean_subject(subj):
@@ -429,17 +458,20 @@ def clean_subject(subj):
         cleaned_subject = decoded
     return cleaned_subject
 
-def get_reported_by(known_recip_lst):
-    if known_recip_lst == [None]:
+def get_reported_by(lst_of_recip):
+    if lst_of_recip == [None]:
         reported_by = ''
-    elif len(known_recip_lst) == 1:
-        reported_by = ''.join(known_recip_lst)
+    elif len(lst_of_recip) == 1:
+        if isinstance(lst_of_recip, list):
+            reported_by = str(lst_of_recip[0])
+        elif isinstance(lst_of_recip, str):
+            reported_by = lst_of_recip
     else:
         reported_by = ''
     return reported_by
 
 def recip_found_check(fields_dict):
-    if not fields_dict['known_recip']:
+    if not fields_dict['known_recip_str']:
         return False
     else: 
         return True
@@ -457,7 +489,7 @@ def manual_get_recip(fields_dict):
             if not user:
                 break
             else:
-                more_fields_dict['known_recip'] = user
+                more_fields_dict['known_recip_str'] = user
                 more_fields_dict['reported_by'] = user
                 break
         except NameError:
@@ -472,19 +504,25 @@ def create_field_output(p_header, r_header, domains):
     fields_out['from'] = p_header['from']
     fields_out['from_name'] = get_name_from(fields_out['from'])
     fields_out['from_email'] = get_email_from(fields_out['from'])
+    fields_out['from_dmn'] = get_dmn_from_addy(fields_out['from_email'])
+    fields_out['found_sender'] = get_sender(p_header)
+    fields_out['found_sender_name'] = get_name_from(fields_out['found_sender'])
+    fields_out['found_sender_eml'] = get_email_from(fields_out['found_sender'])
+    fields_out['found_sender_dmn'] = get_dmn_from_addy(fields_out['found_sender_eml'])
     fields_out['to'] = p_header['to']
     fields_out['to_name'] = get_name_from(fields_out['to'])
     fields_out['to_email'] = get_email_from(fields_out['to'])
     fields_out['known_recip_lst'] = get_recip_lst(p_header, domains)
-    fields_out['found_sender'] = get_sender(p_header)
     fields_out['known_recip_eml_lst'] = \
         get_recip_eml_lst(fields_out['known_recip_lst'])
-    fields_out['known_recip'] = get_recip_str(fields_out['known_recip_lst'])
-    fields_out['reported_by'] = get_reported_by(fields_out['known_recip_lst'])
+    fields_out['known_recip_str'] = get_recip_str(fields_out['known_recip_lst'])
+    fields_out['known_recip_eml_str'] = get_recip_str(fields_out['known_recip_eml_lst'])
+    fields_out['reported_by'] = get_reported_by(fields_out['known_recip_eml_lst'])
     fields_out['subject'] = get_subject(p_header)
     fields_out['date'] = p_header['date']
     fields_out['return_path'] = p_header['return-path']
     fields_out['origin_email'] = get_origin_email(p_header, r_header)
+    fields_out['origin_email_dmn'] = get_dmn_from_addy(fields_out['origin_email'])
     fields_out['origin_ip'] = get_origin_ip(p_header)
     fields_out['reply_to'] = p_header['reply-to']
     fields_out['x_mailer'] = p_header['x-mailer']
@@ -495,17 +533,28 @@ def create_field_output(p_header, r_header, domains):
 def sanitize_field_output(unclean_fields):
     clean_fields = unclean_fields.copy()
     clean_fields['from'] = defang_decode(clean_fields['from'])
+    clean_fields['from_name'] = defang_decode(clean_fields['from_name'])
+    clean_fields['from_email'] = defang_decode(clean_fields['from_email'])
+    clean_fields['from_dmn'] = defang_decode(clean_fields['from_dmn'])
     clean_fields['found_sender'] = defang_decode(clean_fields['found_sender'])
-    clean_fields['known_recip'] = decode(clean_fields['known_recip'])
+    clean_fields['found_sender_name'] = defang_decode(clean_fields['found_sender_name'])
+    clean_fields['found_sender_eml'] = defang_decode(clean_fields['found_sender_eml'])
+    clean_fields['found_sender_dmn'] = defang_decode(clean_fields['found_sender_dmn'])
     clean_fields['known_recip_lst'] = decode(clean_fields['known_recip_lst'])
     clean_fields['known_recip_eml_lst'] = \
         decode(clean_fields['known_recip_eml_lst'])
+    clean_fields['known_recip_str'] = decode(clean_fields['known_recip_str'])
+    clean_fields['known_recip_eml_str'] = \
+        decode(clean_fields['known_recip_eml_str'])
     clean_fields['subject'] = clean_subject(clean_fields['subject'])
+    clean_fields['trunc_subject'] = truncate_str(clean_fields['subject'])
     clean_fields['to'] = decode(clean_fields['to'])
     clean_fields['return_path'] = defang(clean_fields['return_path'])
     clean_fields['origin_email'] = defang_decode(clean_fields['origin_email'])
+    clean_fields['origin_email_dmn'] = defang_decode(clean_fields['origin_email_dmn'])
     clean_fields['origin_ip'] = defang(clean_fields['origin_ip'])
     clean_fields['reply_to'] = defang_decode(clean_fields['reply_to'])
+    clean_fields['message_id'] = decode(clean_fields['message_id'])
     return clean_fields
 
 # Aggregates the metadata fields into a list for printing.
@@ -513,7 +562,7 @@ def create_meta_out(fields_dict):
     metafields = []
     metafields.append('Primary Metadata')
     metafields.append('Sender: ' + fields_dict['found_sender']) 
-    metafields.append('Recipient(s): ' + fields_dict['known_recip'])
+    metafields.append('Recipient(s): ' + fields_dict['known_recip_eml_str'])
     metafields.append('Reported By: ' + fields_dict['reported_by'])
     metafields.append('Subject: ' + fields_dict['subject'])
     metafields.append('Date: ' + fields_dict['received_time'])
@@ -533,7 +582,7 @@ def create_meta_out(fields_dict):
         metafields.append('User-Agent: ' + fields_dict['user_agent'])
     if fields_dict['message_id']:
         metafields.append('Message_ID: ' + fields_dict['message_id'])
-    metafields.append('Notable Search: ')
-    metafields.append('Search Time: ')
-    metafields.append('Link: ')
+    # metafields.append('Notable Search: ')
+    # metafields.append('Search Time: ')
+    # metafields.append('Link: ')
     return metafields
