@@ -8,7 +8,6 @@ from email.header import decode_header, make_header
 from email.utils import parseaddr, getaddresses, formataddr
 import re
 import subprocess
-import sys
 
 ipv4_regex = re.compile(r'(?:^|\b(?<!\.))'
                       r'(?:1?\d?\d|2[0-4]\d|25[0-5])'
@@ -94,7 +93,6 @@ def defang(defang_this):
 
 # Decodes fields
 def decode(decode_this):
-    decode_working = []
     if decode_this: 
         if isinstance(decode_this, str):
             decode_working = ''
@@ -119,7 +117,7 @@ def decode(decode_this):
             except TypeError:
                 decode_working = ["_____Error in field parsing_____", ]
     else: 
-        decode_working = decode_this
+        decode_working = decode_this 
     return decode_working
 
 # Decodes and sanitizes fields
@@ -129,7 +127,8 @@ def defang_decode(defang_decode_this):
             decode_working = str(make_header(decode_header(defang_decode_this)))
             defang_decode_working = decode_working.replace('.', '[.]')\
                                             .replace('@', '[@]')\
-                                            .replace('http', '[hxxp]')
+                                            .replace('http', '[hxxp]')\
+                                            .replace(':', '[:]')
         except TypeError:
             defang_decode_working = "_____Error in field parsing_____"
     else:
@@ -449,6 +448,7 @@ def clean_subject(subj):
     cleaned_subject = ''
     decoded = decode(subj)
     if ipv4_regex.search(decoded) \
+        or ipv6_regex.search(decoded) \
         or domain_only_regex.search(decoded):
         cleaned_subject = defang(decoded)
     else:
