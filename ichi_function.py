@@ -84,7 +84,8 @@ def defang(defang_this):
         try:
             defang_working = defang_this.replace('.', '[.]')\
                                     .replace('@', '[@]')\
-                                    .replace('http', '[hxxp]')
+                                    .replace('http', '[hxxp]')\
+                                    .replace(':', '[:]')
         except TypeError:
             defang_working = "_____This field could not be found_____"
     else:
