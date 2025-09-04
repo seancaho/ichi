@@ -92,14 +92,17 @@ def defang(defang_this):
         defang_working = defang_this
     return defang_working
 
-# Decodes fields
+# Takes a string and handles basic decoding
+def base_decode(str_to_decode):
+    return str(make_header(decode_header(str_to_decode))).replace("\n", "").strip()          
+
+# Returns decoded values of the same type received
 def decode(decode_this):
     if decode_this: 
         if isinstance(decode_this, str):
             decode_working = ''
             try: 
-                decode_working = str(make_header(decode_header(decode_this)))
-                decode_working = decode_working.replace("\n", "")
+                decode_working = base_decode(decode_this)
             except TypeError:
                 decode_working = "_____Error in field parsing_____"
         elif isinstance(decode_this, list):
@@ -107,14 +110,10 @@ def decode(decode_this):
             try:
                 for i in decode_this:
                     if isinstance(i, str):
-                        reformat = str(make_header(decode_header(i)))
-                        reformat = reformat.replace("\n", "")
-                        decode_working.append(reformat)
+                        decode_working.append(base_decode(i))
                     elif isinstance(i, tuple):
                         reformat = formataddr(i)
-                        reformat = str(make_header(decode_header(reformat)))
-                        reformat = reformat.replace("\n", "")
-                        decode_working.append(reformat)
+                        decode_working.append(decode_this(reformat))
             except TypeError:
                 decode_working = ["_____Error in field parsing_____", ]
     else: 
@@ -125,7 +124,7 @@ def decode(decode_this):
 def defang_decode(defang_decode_this):
     if defang_decode_this:
         try: 
-            decode_working = str(make_header(decode_header(defang_decode_this)))
+            decode_working = decode(defang_decode_this)
             defang_decode_working = decode_working.replace('.', '[.]')\
                                             .replace('@', '[@]')\
                                             .replace('http', '[hxxp]')\
