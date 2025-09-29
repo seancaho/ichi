@@ -437,9 +437,15 @@ def get_subject(parsed_header):
 
 def get_dmn_from_addy(input_addy):
     if isinstance(input_addy, str):
-        dmn = input_addy.split('@')[1]
+        if "@" in input_addy:
+            dmn = input_addy.split('@')[1]
+        else:
+            dmn = input_addy
     elif isinstance(input_addy, tuple):
-        dmn = input_addy[1].split('@')[1]
+        if "@" in input_addy[1]:
+            dmn = input_addy[1].split('@')[1]
+        else:
+            dmn = input_addy[1]
     return dmn
 
 # Sanitize any IPs, emails, or domains included in the subject line
