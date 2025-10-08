@@ -94,7 +94,10 @@ def defang(defang_this):
 
 # Takes a string and handles basic decoding
 def base_decode(str_to_decode):
-    return str(make_header(decode_header(str_to_decode))).replace("\n", "").strip()          
+    replacements = str.maketrans({"\r": "", "\n": ""})
+    decoding_string = str(make_header(decode_header(str_to_decode))).strip()
+    decoding_string = decoding_string.translate(replacements)
+    return decoding_string
 
 # Returns decoded values of the same type received
 def decode(decode_this):
