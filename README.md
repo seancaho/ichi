@@ -18,23 +18,11 @@ Some options to modify the script's behavior based on user preference are availa
 # Setup
 Ichi Script is built in Python3 and is intended to run in Terminal on Mac. To use Ichi Script most effectively, you will need to: 
 
-1. Install Python3
-2. Download Ichi Script
-3. Install dependencies
-4. Create an alias to easily run Ichi Script
+1. Download Ichi Script
+2. Install dependencies
+3. Create an alias to easily run Ichi Script
 
-## 1. Install Python3
-Python3 may already be installed on your system. To check, in terminal, use 
-`python3 --version`. If the output looks similar to the below, you can skip to step 2.
-'''
-Python 3.9.6
-'''
-
-In case Python3 is not installed, good guides to installing Python3 have already been created. The linked repo here includes clear instructions for installing Python on multiple platforms. 
-
-[Install Python3 by PackeTsar](https://github.com/PackeTsar/Install-Python/)
-
-## 2. Download Ichi Script
+## 1. Download Ichi Script
 All files included in Ichi Script should live in the same directory and no file names should ever be modified. 
 
 Move all Ichi Script files into a directory where they can permanently live on your machine. You will not need to access this file often. For example, create something like a `code` directory in your `Documents` folder. 
@@ -45,12 +33,12 @@ Then move the ichi folder and all contents into that directory.
 ```
 mv ~/Downloads/ichi /Documents/code/
 ```
-Or just use Finder and do this the easy way. ;) 
+Or just use Finder...
 
 Ichi Script will likely be updated from time to time. When updated files are sent, simply replace the files in the ichi directory with the updated versions.
 
-## 3. Install Required Packages
-The majority of dependencies that Ichi Script relies on are part of the standard library. Packages not in the standard library that need to be added to your local machine are listed at the top of the files in Ichi Script and aggregated in requirements.txt. 
+## 2. Install Required Packages
+The majority of dependencies that Ichi Script relies on are part of the standard library. Packages not in the standard library that need to be added to your local machine are listed at the top of each file in Ichi Script and aggregated in requirements.txt. 
 
 To add the packages, after installing Python3, move into the ichi directory:
 ```
@@ -62,7 +50,7 @@ And then run the following commands:
 pip3 install -r requirements.txt
 ``` 
 
-## 4. Create an alias to easily run Ichi Script 
+## 3. Create an alias to easily run Ichi Script 
 Creating an alias will make it fast and simple to use Ichi Script. An alias creates a shortcut to execute a command in Terminal. So rather than having to type something like this every time you want to use Ichi:
 ```
 python3 python3 /Users/<your_username>/Documents/code/ichi/ichi_script.py
@@ -71,21 +59,29 @@ Instead, if you create an alias, you can just use:
 ```
 ichi
 ```
-To create an alias, we'll modify your `.bash_profile`[^1]. In Terminal, move to your home directory.
+To create an alias, we'll modify your `.zshrc`[^1] file in your home directory. In Terminal, move to your home directory.
 ```
 cd ~/
 ```
-Then use Nano to edit the `.bash_profile` file.
+Confirm you have a `.zshrc` file. 
 ```
-nano .bash_profile
+ls -alth
 ```
-Add the following lines to the bottom of your `.bash_profile`. Be sure to change the path included to match the location and name you gave to the ichi_script.py file you created in step 3. 
+If you don't see `.zshrc`, create one. 
+```
+touch .zshrc
+```
+Then use Nano or another text editor to edit the `.zshrc` file.
+```
+nano .zshrc
+```
+Add the following lines to the bottom of your `.zshrc`. Be sure to change the path included to match the location and name you gave to the ichi_script.py file you created in step 2. 
 ```
 # ALIASES
 alias ichi='python3 /Users/<your_username>/Documents/code/ichi/ichi_script.py'
 ```
-When you are finished, save your changes and exit Nano `Ctrl+X` then `Y`. Completely quit and restart Terminal to reload your `.bash_profile`. 
+When you are finished, save your changes and exit Nano `Ctrl+X` then `Y`. Completely quit and restart Terminal to reload your `.zshrc`. 
 
 You should now be able to type `ichi` in Terminal to run Ichi Script.
 
-[^1]: There are multiple files you might edit to create an alias. As well, the files will be different if you choose to use a shell other than Bash. Should you wish to use Zsh, the default for Mac, try googling something like "configure alias zsh". 
+[^1]: There are multiple files you might edit to create an alias. As well, the files will be different if you choose to use a shell other than Zsh. 
