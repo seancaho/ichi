@@ -7,6 +7,7 @@ from email import message_from_string
 from email.header import decode_header, make_header
 import sys
 import logging
+import argparse
 # Local modules
 import ichi_function as ichi_fn
 import ichi_config
@@ -28,6 +29,18 @@ clean_field_out = {}
 final_warnings = ''
 sum_statement = ''
 ticket_out = ''
+
+parser = argparse.ArgumentParser(
+                    prog='IchiScript',
+                    description='The swiss-army-knife of eml analysis.')
+parser.add_argument('cmd',
+                    help='The primary function you want to use.',
+                    type=str, 
+                    choices={"analyze", "phish", "setup", "report"},
+                    default='phish')
+input_opt = parser.add_mutually_exclusive_group(required=True)
+input_opt.add
+args = parser.parse_args()
 
 # The primary flow to pull the email header and analyze it
 def main():
