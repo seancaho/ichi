@@ -16,6 +16,9 @@ print_warnings = True
 truncate_summary = False
 
 # PERSONAL INFORMATION
+# Assumed to be your downloads folder if not manually set
+working_directory = "/path/to/working/dir"
+
 personal_info = {
     # This info relates to the company you work for
     # Replace the example info with your own

@@ -38,8 +38,9 @@ parser.add_argument('cmd',
                     type=str, 
                     choices={"analyze", "phish", "setup", "report"},
                     default='phish')
-input_opt = parser.add_mutually_exclusive_group(required=True)
-input_opt.add
+parser.add_argument("-i", "--input", 
+                           help="Specify the full path of the eml file to analyze or use 'clipboard'. Defaults to the most recently created eml in your working directory.",
+                           type=str)
 args = parser.parse_args()
 
 # The primary flow to pull the email header and analyze it
@@ -47,16 +48,26 @@ def main():
 
     print(ichi_fn.ichi_intro)
 
-    if ichi_config.quickness:
-        print(ichi_fn.ichi_instruct)
-    else:
-        input(ichi_fn.ichi_instruct)
-    raw_header_str = ichi_fn.capture_email_header()
-    header = message_from_string(raw_header_str)
+    #if ichi_config.quickness:
+    #    print(ichi_fn.ichi_instruct)
+    #else:
+    #    input(ichi_fn.ichi_instruct)
+    print(ichi_fn.ichi_instruct)
+    # TODO: reset to normal or remove slowness
+
+    email_obj = ichi_fn.capture_input(
+        args, ichi_config.working_directory)
+
+    new_header = ''
+    # TODO: refactor to make this unnecessary
+    for v,s in email_obj.items():
+        new_header += v + ' ' + s + '\n'
+    raw_header_str = new_header
+
     client_name = ichi_fn.get_client_name(ichi_config.client_info)
     client_domains = ichi_fn.get_client_domains(client_name, 
                                             ichi_config.client_info)
-    evil_field_out = ichi_fn.create_field_output(header, 
+    evil_field_out = ichi_fn.create_field_output(email_obj, 
                                             raw_header_str, 
                                             client_domains
                                             )
