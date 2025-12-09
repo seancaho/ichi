@@ -4,8 +4,14 @@
 from dateutil.parser import parse
 import getch
 # Built-in modules
+from email import message_from_string, policy
+from email.parser import BytesParser
 from email.header import decode_header, make_header
 from email.utils import parseaddr, getaddresses, formataddr
+from glob import glob
+from os.path import getctime, isfile
+from pathlib import Path
+from sys import exit
 import re
 import subprocess
 
@@ -188,6 +194,20 @@ def get_name_from(field_value):
     name = field_tuple[0]
     return name
 
+
+def get_latest_eml(given_path):
+    '''
+    Uses timstamps to find the most recently created eml file in a directory.
+    Returns the full path.
+    '''
+    test_path = given_path + '*.eml'
+    try:
+        list_of_files = glob(test_path)
+        return max(list_of_files, key=getctime)
+    except ValueError:
+        print("Seems like you may have forgotten to download the eml file...")
+        exit()
+
 # Pulls header from clipboard
 # Validates that text was pasted as string
 def capture_email_header():
@@ -227,6 +247,55 @@ def capture_email_header():
             elif not user_direct_input:
                 input(error_content)
     return header_str_input
+
+
+
+def capture_input(usr_args, wrk_dir):
+    '''
+    Primary function to capture and parse user input. 
+    Returns a parsed email object. 
+    :param usr_args: cli arguments from argparse
+    :param wrk_dir: working directory from config file
+    '''
+
+    if not usr_args.input or usr_args.input == 'clipboard':
+        raw_txt_header = capture_email_header()
+        parsed_msg = message_from_string(raw_txt_header)
+        #TODO: refactor to use Parser
+    
+    elif usr_args.input == 'working':
+        if wrk_dir == '/path/to/working/dir':
+            wrk_dir = str(Path.home()) + '/Downloads/'
+        target_email = get_latest_eml(wrk_dir)
+        
+        with open(target_email, 'rb') as eml_open:
+            raw = eml_open.read()
+            if raw.startswith(b'\xef\xbb\xbf'):
+                raw = raw[3:]
+
+            parsed_msg = BytesParser( 
+                policy=policy.default).parsebytes(
+                    raw)
+
+    else:
+        filepath = usr_args.input
+        if not isfile(filepath):
+            print("Couldn't find the specified file.")
+            exit()
+        elif not filepath.endswith('.eml'):
+            print("Specified file isn't EML.")
+            exit()
+
+        with open(filepath, 'rb') as eml_open:
+            raw = eml_open.read()
+            if raw.startswith(b'\xef\xbb\xbf'):
+                raw = raw[3:]
+
+            parsed_msg = BytesParser( 
+                policy=policy.default).parsebytes(
+                    raw)
+            
+    return parsed_msg
 
 # Presents client domain options and gets selection
 def get_client_name(client_info):
