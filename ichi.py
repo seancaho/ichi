@@ -9,10 +9,10 @@ import sys
 import logging
 import argparse
 # Local modules
-import ichi_function as ichi_fn
-import ichi_config
-import ichi_macro
-import ichi_warn
+import functions as ichi_fn
+import config
+import macro
+import warnings
 
 # Setup and disable/enable logging
 logging.basicConfig(level=logging.DEBUG, 
@@ -48,7 +48,7 @@ def main():
 
     print(ichi_fn.ichi_intro)
 
-    #if ichi_config.quickness:
+    #if config.quickness:
     #    print(ichi_fn.ichi_instruct)
     #else:
     #    input(ichi_fn.ichi_instruct)
@@ -56,7 +56,7 @@ def main():
     # TODO: reset to normal or remove slowness
 
     email_obj = ichi_fn.capture_input(
-        args, ichi_config.working_directory)
+        args, config.working_directory)
 
     new_header = ''
     # TODO: refactor to make this unnecessary
@@ -64,34 +64,34 @@ def main():
         new_header += v + ' ' + s + '\n'
     raw_header_str = new_header
 
-    client_name = ichi_fn.get_client_name(ichi_config.client_info)
+    client_name = ichi_fn.get_client_name(config.client_info)
     client_domains = ichi_fn.get_client_domains(client_name, 
-                                            ichi_config.client_info)
+                                            config.client_info)
     evil_field_out = ichi_fn.create_field_output(email_obj, 
                                             raw_header_str, 
                                             client_domains
                                             )
-    final_warnings = ichi_warn.get_warnings(evil_field_out)
+    final_warnings = warnings.get_warnings(evil_field_out)
     if ichi_fn.recip_found_check(evil_field_out) == False:
         evil_field_out = ichi_fn.manual_get_recip(evil_field_out)
     clean_field_out = ichi_fn.sanitize_field_output(evil_field_out)
     primary_meta_out = ichi_fn.create_meta_out(clean_field_out)
     printable_meta = ichi_fn.str_from_lst(primary_meta_out)
-    sum_statement = ichi_macro.get_sum_state(clean_field_out, ichi_config.truncate_summary)
-    ticket_out = ichi_macro.get_full_macro(sum_statement, 
+    sum_statement = macro.get_sum_state(clean_field_out, config.truncate_summary)
+    ticket_out = macro.get_full_macro(sum_statement, 
                                     printable_meta, 
                                     raw_header_str,
                                     client_name,
-                                    ichi_config.personal_info
+                                    config.personal_info
                                     )
 
     # Print final outputs determined in config
-    if ichi_config.meta_only:
+    if config.meta_only:
         final_output = printable_meta
     else:
         final_output = ticket_out
         
-    if ichi_config.clip_output:
+    if config.clip_output:
         ichi_fn.pbcopy(final_output)
         print(ichi_fn.out_heading)
         print(final_output)
@@ -99,7 +99,7 @@ def main():
         print(ichi_fn.out_heading)
         print(final_output)
 
-    if final_warnings and ichi_config.print_warnings:
+    if final_warnings and config.print_warnings:
         print(final_warnings)
 
     sys.exit()
