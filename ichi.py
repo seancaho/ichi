@@ -85,6 +85,10 @@ def main():
     if ichi_fn.recip_found_check(evil_field_out) == False:
         evil_field_out = ichi_fn.manual_get_recip(evil_field_out)
     clean_field_out = ichi_fn.sanitize_field_output(evil_field_out)
+
+    #print(clean_field_out)
+    #exit()
+
     primary_meta_out = ichi_fn.create_meta_out(clean_field_out)
     printable_meta = ichi_fn.str_from_lst(primary_meta_out)
     sum_statement = macro.get_sum_state(clean_field_out, config.truncate_summary)

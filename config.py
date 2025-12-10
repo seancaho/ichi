@@ -13,7 +13,7 @@ clip_output = True
 # whether additional warnings are printed after macro
 print_warnings = True
 # in the summary sentence, shorten the subject and sender if they're long
-truncate_summary = False
+truncate_summary = True
 
 # PERSONAL INFORMATION
 # Assumed to be your downloads folder if not manually set
