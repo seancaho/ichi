@@ -1,11 +1,11 @@
 #! /usr/bin/env python3
 
 # Modules requiring installation
-from dateutil.parser import parse
+from dateutil.parser import parse as du_parse
 import getch
 # Built-in modules
 from email import message_from_string, policy
-from email.parser import BytesParser
+from email.parser import BytesParser, Parser
 from email.header import decode_header, make_header
 from email.utils import parseaddr, getaddresses, formataddr
 from glob import glob
@@ -200,9 +200,11 @@ def get_latest_eml(given_path):
     Uses timstamps to find the most recently created eml file in a directory.
     Returns the full path.
     '''
-    test_path = given_path + '*.eml'
+    if not given_path.endswith('/'):
+        given_path = given_path + '/'
+    given_path = given_path + '*.eml'
     try:
-        list_of_files = glob(test_path)
+        list_of_files = glob(given_path)
         return max(list_of_files, key=getctime)
     except ValueError:
         print("Seems like you may have forgotten to download the eml file...")
@@ -210,7 +212,7 @@ def get_latest_eml(given_path):
 
 # Pulls header from clipboard
 # Validates that text was pasted as string
-def capture_email_header():
+def capture_clipboard_input():
     error_blank = (
             '\n\n### Error. Pulled contents were blank. ###'\
             '\n\nCopy your email header to the clipboard.'\
@@ -259,15 +261,17 @@ def capture_input(usr_args, wrk_dir):
     '''
 
     if not usr_args.input or usr_args.input == 'clipboard':
-        raw_txt_header = capture_email_header()
-        parsed_msg = message_from_string(raw_txt_header)
-        #TODO: refactor to use Parser
-    
+        raw_txt = capture_clipboard_input()
+
+        parsed_msg = Parser( 
+            policy=policy.default).parsestr(
+                raw_txt)
+
+        
     elif usr_args.input == 'working':
         if wrk_dir == '/path/to/working/dir':
-            wrk_dir = str(Path.home()) + '/Downloads/'
+            wrk_dir = str(Path.home()) + '/Downloads'
         target_email = get_latest_eml(wrk_dir)
-        
         with open(target_email, 'rb') as eml_open:
             raw = eml_open.read()
             if raw.startswith(b'\xef\xbb\xbf'):
@@ -297,35 +301,32 @@ def capture_input(usr_args, wrk_dir):
             
     return parsed_msg
 
-# Presents client domain options and gets selection
-def get_client_name(client_info):
+
+def get_client_cli(clinfo):
     instruct = ('\n\nUse a number to select client this ticket is for.\n'
                 'Hit return to bypass.\n\n')
-    client_name = 'CLIENT'
     error_type = ("\n\n### You have chosen... poorly. ###\n"
-                  "### Use a number or return to bypass. ###")
+                "### Use a number or return to bypass. ###")
     error_range = ("\n\n### Selection is outside the expected range. ###\n"
                     "### Use the number next to the desired client. ###")
     error_gen = "\n\n### Try that again. Something is wrong. ###"
-    print('\n\n======\n\nCLIENT SELECTION\n\n======')
+
     for i in range(1, 6):
         try:
             print(instruct)
-            key_lst = list(client_info.keys())
+            key_lst = list(clinfo.keys())
             for x in range(len(key_lst)):
                 print(f"({x + 1}): {key_lst[x]}")
             client_select = getch.getch()
-            if client_select == '\n':
-                client_select = ''
-            if not client_select:
-                print('\n\n### Client selected: ' + client_name + '\n\n')
-                break
+            if client_select == '\n' or not client_select:
+                client_name = None
+                return client_name
             else:
                 client_select_int = int(client_select) - 1
                 if 0 <= client_select_int < len(key_lst):
                     client_name = key_lst[client_select_int]
-                    print('\n\n### Client selected: ' + client_name + '\n\n')
-                    break
+                    print(f"\n\n### Client selected: {client_name}\n")
+                    return client_name
                 elif client_select_int < 0 or \
                     client_select_int > len(key_lst):
                     print(error_range)
@@ -337,14 +338,51 @@ def get_client_name(client_info):
             print(error_type)
     return client_name
 
-# Gets the client domains from config; returns placeholder as necessary
-def get_client_domains(client_name, info):
-    client_domains = []
-    if client_name == "CLIENT":
-        client_domains = []
+
+def client_detection(clinfo, clselect, msg):
+    """
+    Outputs the name of the client whose environment produced the eml.
+    Prioritizes 1) command parameter 2) automated matching 
+    3) manual input.
+    
+    :param clinfo: Dictionary of client info from config file
+    :param clselect: Client specified as cli command parameter
+    :param msg: Parsed email message
+    """
+
+    print('\n\n======\n\nCLIENT SELECTION\n\n======')
+
+    if clselect:
+        for client_name in clinfo.keys():
+            if clselect == client_name:
+                print(f"\n\n### Client selected: {clselect}\n")
+                return clselect
+    
+    elif msg['to'] or msg['cc']:
+        for client_name in clinfo:
+            for domain in clinfo[client_name]['domains']:
+                if domain in msg['to'] or msg['cc']:
+                    print(f"\n\n### Client detected: {client_name}\n")
+                    return client_name
+
+        return get_client_cli(clinfo)
+
     else:
-        client_domains = info[client_name]["domains"]
-    return client_domains
+        return get_client_cli(clinfo)
+
+
+def get_client_domains(clname, clinfo):
+    """
+    Returns a list of domains for the selected client.
+    
+    :param clname: Name of selected client
+    :param clinfo: Full client information dictionary
+    """
+    if not clname:
+        return []
+    else:
+        return clinfo[clname]["domains"]
+
 
 # Attempts to find the origin IP from the received fields
 # Currently only returns IPv4 addresses
@@ -494,7 +532,7 @@ def get_recip_str(recip_lst):
 def get_real_date(parsed_header):
     hop_one = (parsed_header['received']).split(';')
     hop_one_date = str(hop_one[1]).strip()
-    parsed_date = parse(hop_one_date, fuzzy=True)
+    parsed_date = du_parse(hop_one_date, fuzzy=True)
     parsed_date_in_localtime = parsed_date.astimezone()
     real_date = parsed_date_in_localtime.strftime("%a, %b %d, %Y %H:%M %Z")
     return real_date

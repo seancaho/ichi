@@ -39,7 +39,7 @@ def get_sum_state(output_dict, trunc_instruct):
     return statement
 
 # assembles the full macro for output
-def get_full_macro(statement, meta, raw_header, client, analyst):
+def get_full_macro(statement, meta, raw_header, analyst):
     macro = (
 f'''
 Event Summary:
@@ -48,8 +48,8 @@ Event Summary:
 Remediation & Mitigation Performed by {analyst['tm_abbr']}:
 <List all actions taken and enumerate targets for each>
 
-Remediation & Mitigation Outstanding (to be performed by {client}):
-<List all additional actions that must be taken by {client}>
+Remediation & Mitigation Outstanding (to be performed by client):
+<List all additional actions that must be taken by client>
 
 {meta}
 
