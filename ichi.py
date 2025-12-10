@@ -12,7 +12,7 @@ import argparse
 import functions as ichi_fn
 import config
 import macro
-import warnings
+import flags
 
 # Setup and disable/enable logging
 logging.basicConfig(level=logging.DEBUG, 
@@ -39,8 +39,15 @@ parser.add_argument('cmd',
                     choices={"analyze", "phish", "setup", "report"},
                     default='phish')
 parser.add_argument("-i", "--input", 
-                           help="Specify the full path of the eml file to analyze or use 'clipboard'. Defaults to the most recently created eml in your working directory.",
+                           help="Specify the full path of the eml file to " \
+                           "analyze, 'clipboard', or 'working' for the working " \
+                            "directory. Defaults to the most recently created " \
+                                "eml in your working directory.",
                            type=str)
+parser.add_argument("-c", "--client",
+                            help="Manually specify the client to bypass automated check.",
+                            choices=list(config.client_info),
+                            type=str)
 args = parser.parse_args()
 
 # The primary flow to pull the email header and analyze it
@@ -64,14 +71,17 @@ def main():
         new_header += v + ' ' + s + '\n'
     raw_header_str = new_header
 
-    client_name = ichi_fn.get_client_name(config.client_info)
+    client_name = ichi_fn.client_detection(config.client_info,
+                                args.client, email_obj)
+
     client_domains = ichi_fn.get_client_domains(client_name, 
                                             config.client_info)
     evil_field_out = ichi_fn.create_field_output(email_obj, 
                                             raw_header_str, 
                                             client_domains
                                             )
-    final_warnings = warnings.get_warnings(evil_field_out)
+    final_warnings = flags.get_warnings(evil_field_out)
+
     if ichi_fn.recip_found_check(evil_field_out) == False:
         evil_field_out = ichi_fn.manual_get_recip(evil_field_out)
     clean_field_out = ichi_fn.sanitize_field_output(evil_field_out)
@@ -81,7 +91,6 @@ def main():
     ticket_out = macro.get_full_macro(sum_statement, 
                                     printable_meta, 
                                     raw_header_str,
-                                    client_name,
                                     config.personal_info
                                     )
 
