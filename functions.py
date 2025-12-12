@@ -88,11 +88,11 @@ def mk_heading(title):
     
     :param title: The title to include in the heading
     """
-    hd_wdth = max(30, (len(title) + 6))
+    width = max(30, (len(title) + 6))
 
-    return "\n\n" + ("=" * hd_wdth) + "\n\n" + \
+    return "\n\n" + ("=" * width) + "\n\n" + \
             str(title).upper() + (" " * 6) + "\n\n" + \
-            ("=" * hd_wdth) + "\n"
+            ("=" * width) + "\n"
 
 
 def mk_highlight(*args):
@@ -103,78 +103,127 @@ def mk_highlight(*args):
     :param args: Accepts as many string arguments as necessary.
     """
     highlight = "\n\n***"
-    for txt in args:
-        highlight += " " + str(txt)
+    for text in args:
+        highlight += " " + str(text)
     highlight = highlight + "\n\n"
     return highlight
 
 
-# Sanitizes IPs, URLs, and Emails
-def defang(defang_this):
-    if defang_this:
-        try:
-            defang_working = defang_this.replace('.', '[.]')\
-                                    .replace('@', '[@]')\
-                                    .replace('http', '[hxxp]')\
-                                    .replace(':', '[:]')
-        except TypeError:
-            defang_working = "_____This field could not be found_____"
-    else:
-        defang_working = defang_this
-    return defang_working
+def defang(text):
+    """
+    Takes a single string input. 
+    Makes IPs (v4 and v6) and URLs safe.
+    
+    :param defang_this: single string input
+    """
+    return (text
+                .replace('.', '[.]')\
+                .replace('@', '[@]')\
+                .replace('http', '[hxxp]')\
+                .replace(':', '[:]')
+    )
 
-# Takes a string and handles basic decoding
-def base_decode(str_to_decode):
+def simplify_string(text):
+    """
+    Normalizes and simplifies a string input.
+    Removes carriage returns, newlines, and leading+trailing spaces.
+    
+    :param text: single string input
+    """
     replacements = str.maketrans({"\r": "", "\n": ""})
-    decoding_string = str(make_header(decode_header(str_to_decode))).strip()
-    decoding_string = decoding_string.translate(replacements)
-    return decoding_string
+    return (text.translate(replacements)).strip()
 
-# Returns decoded values of the same type received
-def decode(decode_this):
-    if decode_this: 
-        if isinstance(decode_this, str):
-            decode_working = ''
-            try: 
-                decode_working = base_decode(decode_this)
-            except TypeError:
-                decode_working = "_____Error in field parsing_____"
-        elif isinstance(decode_this, list):
-            decode_working = []
-            try:
-                for i in decode_this:
-                    if isinstance(i, str):
-                        decode_working.append(base_decode(i))
-                    elif isinstance(i, tuple):
-                        reformat = formataddr(i)
-                        decode_working.append(decode_this(reformat))
-            except TypeError:
-                decode_working = ["_____Error in field parsing_____", ]
-    else: 
-        decode_working = decode_this 
-    return decode_working
 
-# Decodes and sanitizes fields
-def defang_decode(defang_decode_this):
-    if defang_decode_this:
-        try: 
-            decode_working = decode(defang_decode_this)
-            defang_decode_working = decode_working.replace('.', '[.]')\
-                                            .replace('@', '[@]')\
-                                            .replace('http', '[hxxp]')\
-                                            .replace(':', '[:]')
-        except TypeError:
-            defang_decode_working = "_____Error in field parsing_____"
-    else:
-        defang_decode_working = defang_decode_this
-    return defang_decode_working
+def decode_simple(header_str):
+    """
+    Applies email package standard for header field decode.
+    Flattens 2-tuples into strings.
+    
+    :param header_str: single header
+    """
+    return str(make_header(decode_header(header_str)))
+
+
+def decode_pretty(to_decode):
+    """
+    Handles multiple text input types and makes them print ready.
+    Applies decode and formatting. Returns lists and strings as such.
+    Flattens 2-tuples (addresses) into strings.
+    
+    :param decode_this: str, lst, lst of tuples, or None
+    """
+
+    if to_decode is None:
+        return None
+    
+    elif isinstance(to_decode, str):
+        return simplify_string(
+            decode_simple(to_decode))
+    
+    elif isinstance(to_decode, tuple):
+        return simplify_string(
+                decode_simple(
+                    formataddr(to_decode)))
+    
+    elif isinstance(to_decode, list):
+        for i in range(len(to_decode)):
+            if isinstance(to_decode[i], str):
+                to_decode[i] = simplify_string(
+                    decode_simple(to_decode[i]))
+            elif isinstance(to_decode[i], tuple):
+                to_decode[i] = simplify_string(
+                    decode_simple(
+                        formataddr(to_decode[i])))
+        return to_decode
+
+
+def decode_safe(to_decode):
+    """
+    Makes multiple input types safe with defang
+    and print ready with decode.
+    Returns lists and strings as such.
+    Flattens 2-tuples (addresses) into strings.
+    
+    :param decode_this: str, lst, lst of tuples, or None
+    """
+    if to_decode is None:
+        return None
+    
+    elif isinstance(to_decode, str):
+        return defang(
+            simplify_string(
+                decode_simple(to_decode)))
+    
+    elif isinstance(to_decode, tuple):
+        return defang(
+                simplify_string(
+                    decode_simple(
+                        formataddr(to_decode))))
+    
+    elif isinstance(to_decode, list):
+        for i in range(len(to_decode)):
+            if isinstance(to_decode[i], str):
+                to_decode[i] = defang(
+                    simplify_string(
+                        decode_simple(to_decode[i])))
+            elif isinstance(to_decode[i], tuple):
+                to_decode[i] = defang(
+                    simplify_string(
+                        decode_simple(
+                            formataddr(to_decode))))
+        return to_decode
+    
 
 def truncate_str(long_str):
+    """
+    Shrinks a string to 100 characters ending in an elipsis.
+    
+    :param long_str: accepts a single long string
+    """
     trunc_length = 100
     try:
         if len(long_str) > 100:
-            short_str = long_str[:97].rstrip() + "..."
-            return short_str
+            return long_str[:97].rstrip() + "..."
         else:
             return long_str
     except TypeError:
@@ -277,7 +326,6 @@ def capture_clipboard_input():
     return header_str_input
 
 
-
 def capture_input(usr_args, wrk_dir):
     '''
     Primary function to capture and parse user input. 
@@ -330,6 +378,12 @@ def capture_input(usr_args, wrk_dir):
 
 
 def get_client_cli(clinfo):
+    """
+    Uses cli prompts based on the client dictionary
+    to enable the user's choice of clients.
+    
+    :param clinfo: dictionary of client info
+    """
     instruct = ('\n\nUse a number to select client this ticket is for.\n'
                 'Hit return to bypass.\n\n')
     error_type = ("\n\n### You have chosen... poorly. ###\n"
@@ -590,7 +644,7 @@ def get_dmn_from_addy(input_addy):
 # Or just decode the subject and return
 def clean_subject(subj):
     cleaned_subject = ''
-    decoded = decode(subj)
+    decoded = decode_pretty(subj)
     if ipv4_regex.search(decoded) \
         or ipv6_regex.search(decoded) \
         or domain_only_regex.search(decoded):
@@ -673,29 +727,29 @@ def create_field_output(p_header, r_header, domains):
 
 def sanitize_field_output(unclean_fields):
     clean_fields = unclean_fields.copy()
-    clean_fields['from'] = defang_decode(clean_fields['from'])
-    clean_fields['from_name'] = defang_decode(clean_fields['from_name'])
-    clean_fields['from_email'] = defang_decode(clean_fields['from_email'])
-    clean_fields['from_dmn'] = defang_decode(clean_fields['from_dmn'])
-    clean_fields['found_sender'] = defang_decode(clean_fields['found_sender'])
-    clean_fields['found_sender_name'] = defang_decode(clean_fields['found_sender_name'])
-    clean_fields['found_sender_eml'] = defang_decode(clean_fields['found_sender_eml'])
-    clean_fields['found_sender_dmn'] = defang_decode(clean_fields['found_sender_dmn'])
-    clean_fields['known_recip_lst'] = decode(clean_fields['known_recip_lst'])
+    clean_fields['from'] = decode_safe(clean_fields['from'])
+    clean_fields['from_name'] = decode_safe(clean_fields['from_name'])
+    clean_fields['from_email'] = decode_safe(clean_fields['from_email'])
+    clean_fields['from_dmn'] = decode_safe(clean_fields['from_dmn'])
+    clean_fields['found_sender'] = decode_safe(clean_fields['found_sender'])
+    clean_fields['found_sender_name'] = decode_safe(clean_fields['found_sender_name'])
+    clean_fields['found_sender_eml'] = decode_safe(clean_fields['found_sender_eml'])
+    clean_fields['found_sender_dmn'] = decode_safe(clean_fields['found_sender_dmn'])
+    clean_fields['known_recip_lst'] = decode_pretty(clean_fields['known_recip_lst'])
     clean_fields['known_recip_eml_lst'] = \
-        decode(clean_fields['known_recip_eml_lst'])
-    clean_fields['known_recip_str'] = decode(clean_fields['known_recip_str'])
+        decode_pretty(clean_fields['known_recip_eml_lst'])
+    clean_fields['known_recip_str'] = decode_pretty(clean_fields['known_recip_str'])
     clean_fields['known_recip_eml_str'] = \
-        decode(clean_fields['known_recip_eml_str'])
+        decode_pretty(clean_fields['known_recip_eml_str'])
     clean_fields['subject'] = clean_subject(clean_fields['subject'])
     clean_fields['trunc_subject'] = truncate_str(clean_fields['subject'])
-    clean_fields['to'] = decode(clean_fields['to'])
+    clean_fields['to'] = decode_pretty(clean_fields['to'])
     clean_fields['return_path'] = defang(clean_fields['return_path'])
-    clean_fields['origin_email'] = defang_decode(clean_fields['origin_email'])
-    clean_fields['origin_email_dmn'] = defang_decode(clean_fields['origin_email_dmn'])
+    clean_fields['origin_email'] = decode_safe(clean_fields['origin_email'])
+    clean_fields['origin_email_dmn'] = decode_safe(clean_fields['origin_email_dmn'])
     clean_fields['origin_ip'] = defang(clean_fields['origin_ip'])
-    clean_fields['reply_to'] = defang_decode(clean_fields['reply_to'])
-    clean_fields['message_id'] = decode(clean_fields['message_id'])
+    clean_fields['reply_to'] = decode_safe(clean_fields['reply_to'])
+    clean_fields['message_id'] = decode_pretty(clean_fields['message_id'])
     return clean_fields
 
 # Aggregates the metadata fields into a list for printing.
