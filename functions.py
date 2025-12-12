@@ -4,7 +4,7 @@
 from dateutil.parser import parse as du_parse
 import getch
 # Built-in modules
-from email import message_from_string, policy
+from email import policy
 from email.parser import BytesParser, Parser
 from email.header import decode_header, make_header
 from email.utils import parseaddr, getaddresses, formataddr
@@ -229,6 +229,7 @@ def truncate_str(long_str):
     except TypeError:
         return long_str
 
+
 # Puts on clipboard
 # Used from pyperclip module, originally to prevent external dependency
 def pbcopy(txt):
@@ -250,28 +251,31 @@ def pbpaste():
     stdout, stderr = task.communicate()
     return(stdout.decode('utf-8'))
 
-# From a list, creates an aggregated string text block.
-def str_from_lst(in_lst):
-    linebreak = '\n'
-    new_str = linebreak.join(in_lst)
-    return new_str
 
-# Gets an email from a name + email within a message field
 def get_email_from(field_value):
-    field_tuple = parseaddr(field_value)
-    email = field_tuple[1]
-    return email
+    """
+    Gets the email portion of a header field, removing
+    the display name.
+    
+    :param field_value: header field
+    """
+    return parseaddr(field_value)[1]
 
-# Gets a name from a name + email within a message field
+
 def get_name_from(field_value):
-    field_tuple = parseaddr(field_value)
-    name = field_tuple[0]
-    return name
-
+    """
+    Gets the display name portion of a header field, removing
+    the email.
+    
+    :param field_value: header field
+    """
+    return parseaddr(field_value)[0]
+    
 
 def get_latest_eml(given_path):
     '''
-    Uses timstamps to find the most recently created eml file in a directory.
+    Uses timstamps to find the most recently created 
+    eml file in a directory.
     Returns the full path.
     '''
     if not given_path.endswith('/'):
@@ -466,16 +470,22 @@ def get_client_domains(clname, clinfo):
         return clinfo[clname]["domains"]
 
 
-# Attempts to find the origin IP from the received fields
-# Currently only returns IPv4 addresses
 def get_origin_ip(parsed_header):
-    '''
+    """
+    Attempts to find the originating IP for an email 
+    from multiple header fields. Currently relies on:
+
     Most common fields for originating IP:
         X-Forefront-Antispam-Report # Microsoft
         Received-SPF # General
+        Earliest IP in Received # General
+
+    To parse in future:
         Authentication-Results # General
         X-Originating-IP # Antiquated
-    '''
+    
+    :param parsed_header: parsed email object
+    """
     # parse earliest ipv4 in hops
     earliest_ipv4_in_hops = ''
     raw_received = parsed_header.get_all('received')
@@ -547,6 +557,7 @@ def get_origin_email(p_header, r_header):
     except TypeError:
         origin_email = "The header may include multiple return-path values."
 
+
 # Shows the sender's intended appearance, not the origin addy
 # Returns 'from', unless there isn't one
 def get_sender(p_header):
@@ -562,24 +573,32 @@ def get_sender(p_header):
         sender = ("Sender could not be determined. ")
     return sender
 
-# outputs a list of client recipients from the fields_to_search
-def get_recip_lst(p_header, client_dom):
+
+def get_recip_lst(header, domains):
+    """
+    Finds all the included recipients for the given client from 
+    common header fields. Returns a list of address tuples.
+    
+    :param header: parsed header object
+    :param domains: list of client domains
+    """
     fields_to_search = ['to', 'cc', 'bcc', 'delivered-to', 'reply-to']
     recip_lst = []
-    if not client_dom and p_header['to']:
-        recip_lst.extend(getaddresses(p_header.get_all('to')))
-    elif client_dom:
+    if not domains and header['to']:
+        recip_lst.extend(getaddresses(header.get_all('to')))
+    elif domains:
         total_recip = []
         total_recip_emails = []
         for field in fields_to_search:
-            if p_header[field]:
-                total_recip.extend(getaddresses(p_header.get_all(field)))
-        for dom in client_dom:
+            if header[field]:
+                total_recip.extend(getaddresses(header.get_all(field)))
+        for dom in domains:
             esc_dom = re.escape(dom)
             client_dom_regex = re.compile(esc_dom, re.I)
             for x in total_recip:
                 email = x[1]
-                if client_dom_regex.search(email) and email not in total_recip_emails:
+                if client_dom_regex.search(email) \
+                        and email not in total_recip_emails:
                     recip_lst.append(x)
                     total_recip_emails.append(email)
                 else:
@@ -593,6 +612,7 @@ def get_recip_eml_lst(lst_of_recip):
         email = fld_tuple[1]
         out_lst.append(email)
     return out_lst
+
 
 # turns the recipient list into a simple, print-ready string
 def get_recip_str(recip_lst):
@@ -708,8 +728,10 @@ def create_field_output(p_header, r_header, domains):
     fields_out['to_name'] = get_name_from(fields_out['to'])
     fields_out['to_email'] = get_email_from(fields_out['to'])
     fields_out['known_recip_lst'] = get_recip_lst(p_header, domains)
-    fields_out['known_recip_eml_lst'] = \
-        get_recip_eml_lst(fields_out['known_recip_lst'])
+    fields_out['known_recip_eml_lst'
+               ] = [e[1] for e in fields_out['known_recip_lst']]
+    #TODO: ensure the above only ever receives header field tuples
+    #TODO: remove all logic related to manual recipient input from cli
     fields_out['known_recip_str'] = get_recip_str(fields_out['known_recip_lst'])
     fields_out['known_recip_eml_str'] = get_recip_str(fields_out['known_recip_eml_lst'])
     fields_out['reported_by'] = get_reported_by(fields_out['known_recip_eml_lst'])
