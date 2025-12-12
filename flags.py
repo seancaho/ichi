@@ -2,8 +2,7 @@
 
 # Creates a list of warnings for the analyzed header
 def get_warnings(fields_dict):
-    intro_warn = ('\n\n======\n\nWARNINGS\n\n======'\
-                  '\n\nThe following errors or abnormalities '\
+    intro_warn = ('\n\nThe following errors or abnormalities '\
                     'were found in parsing this email header.'\
                     '\nYour output was likely affected.\n\n')
     warnings_lst = []
