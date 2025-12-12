@@ -386,7 +386,10 @@ def client_detection(clinfo, clselect, msg):
     elif msg['to'] or msg['cc']:
         for client_name in clinfo:
             for domain in clinfo[client_name]['domains']:
-                if domain in msg['to'] or domain in msg['cc']:
+                if msg['to'] and domain in msg['to']:
+                    print(mk_highlight("Client detected:", client_name))
+                    return client_name
+                elif msg['cc'] and domain in msg['cc']:
                     print(mk_highlight("Client detected:", client_name))
                     return client_name
 
