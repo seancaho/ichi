@@ -71,6 +71,8 @@ def main():
         new_header += v + ' ' + s + '\n'
     raw_header_str = new_header
 
+    print(ichi_fn.mk_heading("CLIENT SELECTION"))
+
     client_name = ichi_fn.client_detection(config.client_info,
                                 args.client, email_obj)
 
@@ -102,13 +104,12 @@ def main():
         
     if config.clip_output:
         ichi_fn.pbcopy(final_output)
-        print(ichi_fn.out_heading)
-        print(final_output)
-    else:
-        print(ichi_fn.out_heading)
-        print(final_output)
+
+    print(ichi_fn.mk_heading("OUTPUT"))
+    print(final_output) #TODO: option to turn off printing output
 
     if final_warnings and config.print_warnings:
+        print(ichi_fn.mk_heading("WARNINGS"))
         print(final_warnings)
 
     sys.exit()

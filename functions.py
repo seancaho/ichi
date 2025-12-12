@@ -14,6 +14,7 @@ from pathlib import Path
 from sys import exit
 import re
 import subprocess
+import textwrap
 
 ipv4_regex = re.compile(r'(?:^|\b(?<!\.))'
                       r'(?:1?\d?\d|2[0-4]\d|25[0-5])'
@@ -48,8 +49,7 @@ regex_for_smtpfrom = re.compile(r'(smtp\.mailfrom\=)'
                                 r'([^=\s\[]*@[a-z0-9\-]*\.[^;>\)\]\s]*)', re.I
                                 )
 
-ichi_intro = ''' 
-======
+ichi_intro = '''
 
 ####  ######  ##     ## #### 
  ##  ##    ## ##     ##  ##  
@@ -72,8 +72,7 @@ Feed Ichi your email header to get some help.
 Warning: this script can cause complacency, abuse, confusion, 
 errors, headaches, indigestion, upset stomach, fainting, 
 and spontaneous combustion. Do not use without first consulting your T2.
- 
-======
+
 
 '''
 
@@ -82,7 +81,33 @@ Copy your email header to the clipboard.
 Press return to feed Ichi and begin.
 '''
 
-out_heading = ('\n\n======\n\nOUTPUT\n\n======\n\n')
+
+def mk_heading(title):
+    """
+    Produces a clean heading
+    
+    :param title: The title to include in the heading
+    """
+    hd_wdth = max(30, (len(title) + 6))
+
+    return "\n\n" + ("=" * hd_wdth) + "\n\n" + \
+            str(title).upper() + (" " * 6) + "\n\n" + \
+            ("=" * hd_wdth) + "\n"
+
+
+def mk_highlight(*args):
+    """
+    Takes multiple string arguments and returns as single
+    string to highlight a result.
+    
+    :param args: Accepts as many string arguments as necessary.
+    """
+    highlight = "\n\n***"
+    for txt in args:
+        highlight += " " + str(txt)
+    highlight = highlight + "\n\n"
+    return highlight
+
 
 # Sanitizes IPs, URLs, and Emails
 def defang(defang_this):
@@ -229,7 +254,7 @@ def capture_clipboard_input():
             '###\n\nCopy your email header to the clipboard.'\
             '\nPress return after copying. Do not paste manually.'\
             '\n\nTroubles? Press Ctrl+c to exit.\n')
-    success_ms = ('\n\n### Success. That seems like an email header. ###\n')
+    success_ms = ('Success. Input copied from clipboard.')
     header_str_input = ''
     attempt_count = 0
     while not header_str_input:
@@ -240,6 +265,7 @@ def capture_clipboard_input():
                 r'(from:\s.*)|(subject:\s.*)|(date:\s.*)', \
                     user_direct_input, re.I):
                 header_str_input = user_direct_input
+                print(mk_highlight(success_ms))
                 break
             elif re.match(r'^\s*$', user_direct_input, re.I):
                 input(error_blank)
@@ -255,7 +281,8 @@ def capture_clipboard_input():
 def capture_input(usr_args, wrk_dir):
     '''
     Primary function to capture and parse user input. 
-    Returns a parsed email object. 
+    Returns a parsed email object.
+
     :param usr_args: cli arguments from argparse
     :param wrk_dir: working directory from config file
     '''
@@ -325,7 +352,7 @@ def get_client_cli(clinfo):
                 client_select_int = int(client_select) - 1
                 if 0 <= client_select_int < len(key_lst):
                     client_name = key_lst[client_select_int]
-                    print(f"\n\n### Client selected: {client_name}\n")
+                    print(mk_highlight("Client selected:", client_name))
                     return client_name
                 elif client_select_int < 0 or \
                     client_select_int > len(key_lst):
@@ -350,19 +377,20 @@ def client_detection(clinfo, clselect, msg):
     :param msg: Parsed email message
     """
 
-    print('\n\n======\n\nCLIENT SELECTION\n\n======')
-
     if clselect:
         for client_name in clinfo.keys():
             if clselect == client_name:
-                print(f"\n\n### Client selected: {clselect}\n")
-                return clselect
+                print(mk_highlight("Client selected:", client_name))
+                return client_name
     
     elif msg['to'] or msg['cc']:
         for client_name in clinfo:
             for domain in clinfo[client_name]['domains']:
-                if domain in msg['to'] or domain in msg['cc']:
-                    print(f"\n\n### Client detected: {client_name}\n")
+                if msg['to'] and domain in msg['to']:
+                    print(mk_highlight("Client detected:", client_name))
+                    return client_name
+                elif msg['cc'] and domain in msg['cc']:
+                    print(mk_highlight("Client detected:", client_name))
                     return client_name
 
         return get_client_cli(clinfo)
