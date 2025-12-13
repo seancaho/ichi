@@ -87,8 +87,6 @@ def main():
                                             )
     final_warnings = flags.get_warnings(evil_field_out)
 
-    if ichi_fn.recip_found_check(evil_field_out) == False:
-        evil_field_out = ichi_fn.manual_get_recip(evil_field_out)
     clean_field_out = ichi_fn.sanitize_field_output(evil_field_out)
     primary_meta_out = ichi_fn.create_meta_out(clean_field_out)
     printable_meta = "\n".join(primary_meta_out)

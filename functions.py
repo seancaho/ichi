@@ -270,6 +270,29 @@ def get_name_from(field_value):
     :param field_value: header field
     """
     return parseaddr(field_value)[0]
+
+
+def emails_to_string(emails):
+    """
+    Turns a list of emails into a nicely formatted string.
+    Can handle header tuples or email addresses. 
+    Returns display names and emails.
+    
+    :param recip_lst: list of strings or tuples
+    """
+    out_str = ''
+    for i in emails:
+        if isinstance(i,tuple):
+            if not out_str:
+                out_str = formataddr(i)
+            else:
+                out_str = (out_str + ', ' + formataddr(i))
+        elif isinstance(i, str):
+            if not out_str:
+                out_str = i
+            else:
+                out_str = (out_str + ', ' + i)            
+    return out_str
     
 
 def get_latest_eml(given_path):
@@ -578,6 +601,7 @@ def get_recip_lst(header, domains):
     """
     Finds all the included recipients for the given client from 
     common header fields. Returns a list of address tuples.
+    Perserves display names.
     
     :param header: parsed header object
     :param domains: list of client domains
@@ -605,30 +629,8 @@ def get_recip_lst(header, domains):
                     continue
     return recip_lst
 
-# Take a list of field values (name, email) and return a list of emails
-def get_recip_eml_lst(lst_of_recip):
-    out_lst = []
-    for fld_tuple in lst_of_recip:
-        email = fld_tuple[1]
-        out_lst.append(email)
-    return out_lst
 
 
-# turns the recipient list into a simple, print-ready string
-def get_recip_str(recip_lst):
-    out_str = ''
-    for i in recip_lst:
-        if isinstance(i,tuple):
-            if not out_str:
-                out_str = formataddr(i)
-            else:
-                out_str = (out_str + ', ' + formataddr(i))
-        elif isinstance(i, str):
-            if not out_str:
-                out_str = i
-            else:
-                out_str = (out_str + ', ' + i)            
-    return out_str
 
 # Pulls the date field from the earliest 'received' field.
 def get_real_date(parsed_header):
@@ -664,14 +666,15 @@ def get_dmn_from_addy(input_addy):
 # Or just decode the subject and return
 def clean_subject(subj):
     cleaned_subject = ''
-    decoded = decode_pretty(subj)
-    if ipv4_regex.search(decoded) \
+    decoded = decode_simple(subj)
+    if ipv4_regex.search(str(decoded)) \
         or ipv6_regex.search(decoded) \
         or domain_only_regex.search(decoded):
         cleaned_subject = defang(decoded)
     else:
         cleaned_subject = decoded
     return cleaned_subject
+
 
 def get_reported_by(lst_of_recip):
     if lst_of_recip == [None]:
@@ -684,34 +687,7 @@ def get_reported_by(lst_of_recip):
     else:
         reported_by = ''
     return reported_by
-
-def recip_found_check(fields_dict):
-    if not fields_dict['known_recip_str']:
-        return False
-    else: 
-        return True
     
-def manual_get_recip(fields_dict):
-    instruct = ("\n\nNo corporate users were found in the header.\n"
-                "Submit the user who reported this email.\n\n")
-    error_type = ("\n\n### Something went wrong in this submission. ###\n")
-    print("\n\n======\n\nRECIPIENT & REPORTED BY\n\n======")
-    more_fields_dict = fields_dict
-    for i in range(1, 6):
-        try:
-            print(instruct)
-            user = input()
-            if not user:
-                break
-            else:
-                more_fields_dict['known_recip_str'] = user
-                more_fields_dict['reported_by'] = user
-                break
-        except NameError:
-            print(error_type)
-        except ValueError:
-            print(error_type)
-    return more_fields_dict
 
 def create_field_output(p_header, r_header, domains):
     fields_out = {}
@@ -730,12 +706,12 @@ def create_field_output(p_header, r_header, domains):
     fields_out['known_recip_lst'] = get_recip_lst(p_header, domains)
     fields_out['known_recip_eml_lst'
                ] = [e[1] for e in fields_out['known_recip_lst']]
-    #TODO: ensure the above only ever receives header field tuples
-    #TODO: remove all logic related to manual recipient input from cli
-    fields_out['known_recip_str'] = get_recip_str(fields_out['known_recip_lst'])
-    fields_out['known_recip_eml_str'] = get_recip_str(fields_out['known_recip_eml_lst'])
+    fields_out['known_recip_str'] = emails_to_string(fields_out['known_recip_lst'])
+    fields_out['known_recip_eml_str'] = emails_to_string(fields_out['known_recip_eml_lst'])
     fields_out['reported_by'] = get_reported_by(fields_out['known_recip_eml_lst'])
     fields_out['subject'] = get_subject(p_header)
+    #TODO: change most direct header field calls to the .get() method to better handle
+        # failing to "" rather than None p_header.get("date", "")
     fields_out['date'] = p_header['date']
     fields_out['return_path'] = p_header['return-path']
     fields_out['origin_email'] = get_origin_email(p_header, r_header)
