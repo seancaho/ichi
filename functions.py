@@ -630,10 +630,13 @@ def get_recip_lst(header, domains):
     return recip_lst
 
 
-
-
-# Pulls the date field from the earliest 'received' field.
 def get_real_date(parsed_header):
+    """
+    Returns the datetime from the earliest received field
+    in local system time.
+    
+    :param parsed_header: parsed header object
+    """
     hop_one = (parsed_header['received']).split(';')
     hop_one_date = str(hop_one[1]).strip()
     parsed_date = du_parse(hop_one_date, fuzzy=True)
@@ -641,26 +644,19 @@ def get_real_date(parsed_header):
     real_date = parsed_date_in_localtime.strftime("%a, %b %d, %Y %H:%M %Z")
     return real_date
 
-# Get the subject field from the parsed header object
-def get_subject(parsed_header):
-    if parsed_header['subject']:
-        original_subject = parsed_header['subject']
-    else:
-        original_subject = "<empty>"
-    return original_subject
 
-def get_dmn_from_addy(input_addy):
-    if isinstance(input_addy, str):
-        if "@" in input_addy:
-            dmn = input_addy.split('@')[1]
-        else:
-            dmn = input_addy
-    elif isinstance(input_addy, tuple):
-        if "@" in input_addy[1]:
-            dmn = input_addy[1].split('@')[1]
-        else:
-            dmn = input_addy[1]
-    return dmn
+def get_dmn_from_addy(address):
+    """
+    Returns a domain from an email address. Accepts strings and tuples.
+    
+    :param address: str or tuple containing email address
+    """
+    if isinstance(address, str):
+        return address.split('@')[1] if "@" in address else None
+    elif isinstance(address, tuple):
+        return address[1].split('@')[1] if "@" in address[1] else None
+    return None
+
 
 # Sanitize any IPs, emails, or domains included in the subject line
 # Or just decode the subject and return
@@ -687,7 +683,12 @@ def get_reported_by(lst_of_recip):
     else:
         reported_by = ''
     return reported_by
-    
+
+
+#TODO: change most direct header field calls to the .get() method
+#TODO: ensure logic passes through None as failure value and handle before print
+    # ensure functions intentionally return None for exceptions
+
 
 def create_field_output(p_header, r_header, domains):
     fields_out = {}
@@ -709,9 +710,7 @@ def create_field_output(p_header, r_header, domains):
     fields_out['known_recip_str'] = emails_to_string(fields_out['known_recip_lst'])
     fields_out['known_recip_eml_str'] = emails_to_string(fields_out['known_recip_eml_lst'])
     fields_out['reported_by'] = get_reported_by(fields_out['known_recip_eml_lst'])
-    fields_out['subject'] = get_subject(p_header)
-    #TODO: change most direct header field calls to the .get() method to better handle
-        # failing to "" rather than None p_header.get("date", "")
+    fields_out['subject'] = p_header.get("subject", "<empty>")
     fields_out['date'] = p_header['date']
     fields_out['return_path'] = p_header['return-path']
     fields_out['origin_email'] = get_origin_email(p_header, r_header)
