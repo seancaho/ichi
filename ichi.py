@@ -79,8 +79,6 @@ def main():
     client_domains = ichi_fn.get_client_domains(client_name, 
                                             config.client_info)
     
-    #TODO: figure out where simplify_string needs called and implement
-
     evil_field_out = ichi_fn.create_field_output(email_obj, 
                                             raw_header_str, 
                                             client_domains
