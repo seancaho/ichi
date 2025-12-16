@@ -125,23 +125,23 @@ def defang(text):
 
 def simplify_string(text):
     """
-    Normalizes and simplifies a string input.
-    Removes carriage returns, newlines, and leading+trailing spaces.
+    Flattens inputs into strings and simplies by removing
+    carriage returns, newlines, and leading+trailing spaces.
     
     :param text: single string input
     """
     replacements = str.maketrans({"\r": "", "\n": ""})
-    return (text.translate(replacements)).strip()
+    return (str(text).translate(replacements)).strip()
 
 
-def decode_simple(header_str):
+def decode_simple(header):
     """
     Applies email package standard for header field decode.
-    Flattens 2-tuples into strings.
+    Will not flatten strings. 
     
-    :param header_str: single header
+    :param heaheaderder_str: single header
     """
-    return str(make_header(decode_header(header_str)))
+    return make_header(decode_header(header)) if header else None
 
 
 def decode_pretty(to_decode):
@@ -581,20 +581,18 @@ def get_origin_email(p_header, r_header):
         origin_email = "The header may include multiple return-path values."
 
 
-# Shows the sender's intended appearance, not the origin addy
-# Returns 'from', unless there isn't one
-def get_sender(p_header):
-    if p_header['from']:
-        sender = p_header['from']
-    elif p_header['sender']:
-        sender = p_header['sender']
-    elif p_header['reply-to']:
-        sender = p_header['reply-to']
-    elif p_header['return-path']:
-        sender = p_header['return-path']
-    else:
-        sender = ("Sender could not be determined. ")
-    return sender
+def get_sender(header):
+    """
+    Uses basic logic to guess a sender. Checks in order of:
+    "from", "sender", "reply-to", "return-path"
+    
+    :param header: parsed header object
+    """
+    for field in ["from", "sender", "reply-to", "return-path"]:
+        sender = header.get(field)
+        if sender: 
+            return sender
+    return None
 
 
 def get_recip_lst(header, domains):
@@ -658,33 +656,42 @@ def get_dmn_from_addy(address):
     return None
 
 
-# Sanitize any IPs, emails, or domains included in the subject line
-# Or just decode the subject and return
-def clean_subject(subj):
-    cleaned_subject = ''
-    decoded = decode_simple(subj)
-    if ipv4_regex.search(str(decoded)) \
-        or ipv6_regex.search(decoded) \
-        or domain_only_regex.search(decoded):
-        cleaned_subject = defang(decoded)
+def clean_subject(subject):
+    """
+    Decode and defang subject if necessary. 
+    
+    :param subject: subject header value
+    """
+    if subject: 
+        decoded = str(decode_simple(subject))
+        if ipv4_regex.search(decoded) \
+                or ipv6_regex.search(decoded) \
+                or domain_only_regex.search(decoded):
+            return defang(decoded)
+        else:
+            return decoded
     else:
-        cleaned_subject = decoded
-    return cleaned_subject
+        return None
 
 
 def get_reported_by(lst_of_recip):
-    if lst_of_recip == [None]:
-        reported_by = ''
-    elif len(lst_of_recip) == 1:
-        if isinstance(lst_of_recip, list):
-            reported_by = str(lst_of_recip[0])
-        elif isinstance(lst_of_recip, str):
-            reported_by = lst_of_recip
+    """
+    Guesses the reporter to be the first address listed in the input.
+    Returns None for any failure condition.
+    
+    :param lst_of_recip: list or single str of recipients
+    """
+    if lst_of_recip == [None] or lst_of_recip == None:
+        return None
+    elif isinstance(lst_of_recip, str):
+        return lst_of_recip
+    elif isinstance(lst_of_recip, list):
+        return str(lst_of_recip[0])
     else:
-        reported_by = ''
-    return reported_by
+        return None
 
 
+#TODO: figure out where simplify_string needs called and implement
 #TODO: change most direct header field calls to the .get() method
 #TODO: ensure logic passes through None as failure value and handle before print
     # ensure functions intentionally return None for exceptions
@@ -710,7 +717,7 @@ def create_field_output(p_header, r_header, domains):
     fields_out['known_recip_str'] = emails_to_string(fields_out['known_recip_lst'])
     fields_out['known_recip_eml_str'] = emails_to_string(fields_out['known_recip_eml_lst'])
     fields_out['reported_by'] = get_reported_by(fields_out['known_recip_eml_lst'])
-    fields_out['subject'] = p_header.get("subject", "<empty>")
+    fields_out['subject'] = p_header.get("subject")
     fields_out['date'] = p_header['date']
     fields_out['return_path'] = p_header['return-path']
     fields_out['origin_email'] = get_origin_email(p_header, r_header)
