@@ -730,41 +730,68 @@ def create_field_output(p_header, r_header, domains):
     fields_out['message_id'] = p_header['message-id']
     return fields_out
 
-def sanitize_field_output(unclean_fields):
-    to_defang = []
-    to_only_decode = []
-    #TODO: rebuild to lists of fields and how to handle
-        # write catch all for fields not present in either list
-        # to turn them to "" for print safety
+def sanitize_field_output(fields):
+    defang_decode = ["from", 
+                 "from_name", 
+                 "from_email", 
+                 "from_dmn", 
+                 "found_sender", 
+                 "found_sender_name", 
+                 "found_sender_eml",
+                 "found_sender_dmn",
+                 "reply_to",
+                 "origin_email",
+                 "origin_email_dmn"
+                 ]
+    only_decode = ["known_recip_lst",
+                      "known_recip_eml_lst",
+                      "known_recip_str",
+                      "known_recip_eml_str",
+                      "reported_by",
+                      "to",
+                      "message_id",
+                      ]
+    only_defang = ["return_path",
+                   "origin_ip"
+                    ]
+    
+    exclude = ["subject", "trunc_subject"]
 
-    clean_fields = unclean_fields.copy()
-    clean_fields['from'] = decode_safe(clean_fields['from'])
-    clean_fields['from_name'] = decode_safe(clean_fields['from_name'])
-    clean_fields['from_email'] = decode_safe(clean_fields['from_email'])
-    clean_fields['from_dmn'] = decode_safe(clean_fields['from_dmn'])
-    clean_fields['found_sender'] = decode_safe(clean_fields['found_sender'])
-    clean_fields['found_sender_name'] = decode_safe(clean_fields['found_sender_name'])
-    clean_fields['found_sender_eml'] = decode_safe(clean_fields['found_sender_eml'])
-    clean_fields['found_sender_dmn'] = decode_safe(clean_fields['found_sender_dmn'])
-    clean_fields['known_recip_lst'] = decode_pretty(clean_fields['known_recip_lst'])
-    clean_fields['known_recip_eml_lst'] = \
-        decode_pretty(clean_fields['known_recip_eml_lst'])
-    clean_fields['known_recip_str'] = decode_pretty(clean_fields['known_recip_str'])
-    clean_fields['known_recip_eml_str'] = \
-        decode_pretty(clean_fields['known_recip_eml_str']) \
-            if clean_fields['known_recip_eml_str'] else ""
-    clean_fields['reported_by'] = clean_fields['reported_by'] \
-        if clean_fields['reported_by'] else ""
-    clean_fields['subject'] = clean_subject(clean_fields['subject'])
-    clean_fields['trunc_subject'] = truncate_str(clean_fields['subject'])
-    clean_fields['to'] = decode_pretty(clean_fields['to'])
-    clean_fields['return_path'] = defang(clean_fields['return_path'])
-    clean_fields['origin_email'] = decode_safe(clean_fields['origin_email'])
-    clean_fields['origin_email_dmn'] = decode_safe(clean_fields['origin_email_dmn'])
-    clean_fields['origin_ip'] = defang(clean_fields['origin_ip'])
-    clean_fields['reply_to'] = decode_safe(clean_fields['reply_to'])
-    clean_fields['message_id'] = decode_pretty(clean_fields['message_id'])
-    return clean_fields
+    # handle fields with special cleanup
+    fields['subject'] = clean_subject(fields['subject'])
+    fields['trunc_subject'] = truncate_str(fields['subject'])
+
+    # defang and decode
+    for extract in defang_decode:
+        if fields[extract]:
+            fields[extract] = decode_safe(fields[extract])
+        else:
+            fields[extract] = ""
+    
+    # decode only
+    for extract in only_decode:
+        if fields[extract]:
+            fields[extract] = decode_pretty(fields[extract])
+        else:
+            fields[extract] = ""
+
+    # decode only
+    for extract in only_defang:
+        if fields[extract]:
+            fields[extract] = defang(fields[extract])
+        else:
+            fields[extract] = ""
+
+    # set any remaining values of None to "" for print
+    for k,v in fields.items():
+        if k not in defang_decode \
+            and k not in only_decode \
+                and k not in only_defang \
+                    and k not in exclude:
+            if not v:
+                fields[k] = ""
+
+    return fields
 
 # Aggregates the metadata fields into a list for printing.
 def create_meta_out(fields_dict):
