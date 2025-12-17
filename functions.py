@@ -681,7 +681,7 @@ def get_reported_by(lst_of_recip):
     
     :param lst_of_recip: list or single str of recipients
     """
-    if lst_of_recip == [None] or lst_of_recip == None:
+    if lst_of_recip in [[None], [], None, ""]:
         return None
     elif isinstance(lst_of_recip, str):
         return lst_of_recip
@@ -695,7 +695,8 @@ def get_reported_by(lst_of_recip):
 #TODO: change most direct header field calls to the .get() method
 #TODO: ensure logic passes through None as failure value and handle before print
     # ensure functions intentionally return None for exceptions
-
+#TODO: extract emails from multiple tuples from fields like 'to'
+    # for inclusion in fields like to_email
 
 def create_field_output(p_header, r_header, domains):
     fields_out = {}
@@ -730,6 +731,12 @@ def create_field_output(p_header, r_header, domains):
     return fields_out
 
 def sanitize_field_output(unclean_fields):
+    to_defang = []
+    to_only_decode = []
+    #TODO: rebuild to lists of fields and how to handle
+        # write catch all for fields not present in either list
+        # to turn them to "" for print safety
+
     clean_fields = unclean_fields.copy()
     clean_fields['from'] = decode_safe(clean_fields['from'])
     clean_fields['from_name'] = decode_safe(clean_fields['from_name'])
@@ -744,7 +751,10 @@ def sanitize_field_output(unclean_fields):
         decode_pretty(clean_fields['known_recip_eml_lst'])
     clean_fields['known_recip_str'] = decode_pretty(clean_fields['known_recip_str'])
     clean_fields['known_recip_eml_str'] = \
-        decode_pretty(clean_fields['known_recip_eml_str'])
+        decode_pretty(clean_fields['known_recip_eml_str']) \
+            if clean_fields['known_recip_eml_str'] else ""
+    clean_fields['reported_by'] = clean_fields['reported_by'] \
+        if clean_fields['reported_by'] else ""
     clean_fields['subject'] = clean_subject(clean_fields['subject'])
     clean_fields['trunc_subject'] = truncate_str(clean_fields['subject'])
     clean_fields['to'] = decode_pretty(clean_fields['to'])
@@ -758,6 +768,7 @@ def sanitize_field_output(unclean_fields):
 
 # Aggregates the metadata fields into a list for printing.
 def create_meta_out(fields_dict):
+    #TODO: move meta to macro
     metafields = []
     metafields.append('Primary Metadata')
     metafields.append('Sender: ' + fields_dict['found_sender']) 
