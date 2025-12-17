@@ -699,99 +699,80 @@ def get_reported_by(lst_of_recip):
     # for inclusion in fields like to_email
 
 def create_field_output(p_header, r_header, domains):
-    fields_out = {}
-    fields_out['received_time'] = get_real_date(p_header)
-    fields_out['from'] = p_header['from']
-    fields_out['from_name'] = get_name_from(fields_out['from'])
-    fields_out['from_email'] = get_email_from(fields_out['from'])
-    fields_out['from_dmn'] = get_dmn_from_addy(fields_out['from_email'])
-    fields_out['found_sender'] = get_sender(p_header)
-    fields_out['found_sender_name'] = get_name_from(fields_out['found_sender'])
-    fields_out['found_sender_eml'] = get_email_from(fields_out['found_sender'])
-    fields_out['found_sender_dmn'] = get_dmn_from_addy(fields_out['found_sender_eml'])
-    fields_out['to'] = p_header['to']
-    fields_out['to_name'] = get_name_from(fields_out['to'])
-    fields_out['to_email'] = get_email_from(fields_out['to'])
-    fields_out['known_recip_lst'] = get_recip_lst(p_header, domains)
-    fields_out['known_recip_eml_lst'
-               ] = [e[1] for e in fields_out['known_recip_lst']]
-    fields_out['known_recip_str'] = emails_to_string(fields_out['known_recip_lst'])
-    fields_out['known_recip_eml_str'] = emails_to_string(fields_out['known_recip_eml_lst'])
-    fields_out['reported_by'] = get_reported_by(fields_out['known_recip_eml_lst'])
-    fields_out['subject'] = p_header.get("subject")
-    fields_out['date'] = p_header['date']
-    fields_out['return_path'] = p_header['return-path']
-    fields_out['origin_email'] = get_origin_email(p_header, r_header)
-    fields_out['origin_email_dmn'] = get_dmn_from_addy(fields_out['origin_email'])
-    fields_out['origin_ip'] = get_origin_ip(p_header)
-    fields_out['reply_to'] = p_header['reply-to']
-    fields_out['x_mailer'] = p_header['x-mailer']
-    fields_out['user_agent'] = p_header['user-agent']
-    fields_out['message_id'] = p_header['message-id']
-    return fields_out
+    fields = {}
+    fields['received_time'] = get_real_date(p_header)
+    fields['from'] = p_header['from']
+    fields['from_name'] = get_name_from(fields['from'])
+    fields['from_email'] = get_email_from(fields['from'])
+    fields['from_dmn'] = get_dmn_from_addy(fields['from_email'])
+    fields['found_sender'] = get_sender(p_header)
+    fields['found_sender_name'] = get_name_from(fields['found_sender'])
+    fields['found_sender_eml'] = get_email_from(fields['found_sender'])
+    fields['found_sender_dmn'] = get_dmn_from_addy(fields['found_sender_eml'])
+    fields['to'] = p_header['to']
+    fields['to_name'] = get_name_from(fields['to'])
+    fields['to_email'] = get_email_from(fields['to'])
+    fields['known_recip_lst'] = get_recip_lst(p_header, domains)
+    fields['known_recip_eml_lst'
+               ] = [e[1] for e in fields['known_recip_lst']]
+    fields['known_recip_str'] = emails_to_string(fields['known_recip_lst'])
+    fields['known_recip_eml_str'] = emails_to_string(fields['known_recip_eml_lst'])
+    fields['reported_by'] = get_reported_by(fields['known_recip_eml_lst'])
+    fields['subject'] = p_header.get("subject")
+    fields['trunc_subject'] = truncate_str(fields['subject'])
+    fields['date'] = p_header['date']
+    fields['return_path'] = p_header['return-path']
+    fields['origin_email'] = get_origin_email(p_header, r_header)
+    fields['origin_email_dmn'] = get_dmn_from_addy(fields['origin_email'])
+    fields['origin_ip'] = get_origin_ip(p_header)
+    fields['reply_to'] = p_header['reply-to']
+    fields['x_mailer'] = p_header['x-mailer']
+    fields['user_agent'] = p_header['user-agent']
+    fields['message_id'] = p_header['message-id']
+    return fields
+
+sanitize_rules = {
+    "from": decode_safe, 
+    "from_name": decode_safe, 
+    "from_email": decode_safe, 
+    "from_dmn": decode_safe, 
+    "found_sender": decode_safe, 
+    "found_sender_name": decode_safe, 
+    "found_sender_eml": decode_safe,
+    "found_sender_dmn": decode_safe,
+    "reply_to": decode_safe,
+    "origin_email": decode_safe,
+    "origin_email_dmn": decode_safe,
+
+    "known_recip_lst": decode_pretty,
+    "known_recip_eml_lst": decode_pretty,
+    "known_recip_str": decode_pretty,
+    "known_recip_eml_str": decode_pretty,
+    "reported_by": decode_pretty,
+    "to": decode_pretty,
+    "message_id": decode_pretty,
+
+    "return_path": defang,
+    "origin_ip": defang,
+
+    "subject": clean_subject, 
+    "trunc_subject": clean_subject
+}
 
 def sanitize_field_output(fields):
-    defang_decode = ["from", 
-                 "from_name", 
-                 "from_email", 
-                 "from_dmn", 
-                 "found_sender", 
-                 "found_sender_name", 
-                 "found_sender_eml",
-                 "found_sender_dmn",
-                 "reply_to",
-                 "origin_email",
-                 "origin_email_dmn"
-                 ]
-    only_decode = ["known_recip_lst",
-                      "known_recip_eml_lst",
-                      "known_recip_str",
-                      "known_recip_eml_str",
-                      "reported_by",
-                      "to",
-                      "message_id",
-                      ]
-    only_defang = ["return_path",
-                   "origin_ip"
-                    ]
-    
-    exclude = ["subject", "trunc_subject"]
+    sanitized = {}
 
-    # handle fields with special cleanup
-    fields['subject'] = clean_subject(fields['subject'])
-    fields['trunc_subject'] = truncate_str(fields['subject'])
+    for k, v in fields.items():
+        rule = sanitize_rules.get(k)
 
-    # defang and decode
-    for extract in defang_decode:
-        if fields[extract]:
-            fields[extract] = decode_safe(fields[extract])
+        if not v:
+            sanitized[k] = ""
+        elif rule:
+            sanitized[k] = rule(v)
         else:
-            fields[extract] = ""
-    
-    # decode only
-    for extract in only_decode:
-        if fields[extract]:
-            fields[extract] = decode_pretty(fields[extract])
-        else:
-            fields[extract] = ""
+            sanitized[k] = (v)
 
-    # decode only
-    for extract in only_defang:
-        if fields[extract]:
-            fields[extract] = defang(fields[extract])
-        else:
-            fields[extract] = ""
-
-    # set any remaining values of None to "" for print
-    for k,v in fields.items():
-        if k not in defang_decode \
-            and k not in only_decode \
-                and k not in only_defang \
-                    and k not in exclude:
-            if not v:
-                fields[k] = ""
-
-    return fields
+    return sanitized
 
 # Aggregates the metadata fields into a list for printing.
 def create_meta_out(fields_dict):
