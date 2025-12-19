@@ -1,7 +1,12 @@
 #! /usr/bin/env python3
 
-# Creates a list of warnings for the analyzed header
 def get_warnings(fields_dict):
+    """
+    Creates a list of warnings based on header content that appears
+    malicious or not standards compliant.
+    
+    :param fields_dict: dictionary of parsed fields
+    """
     intro_warn = ('\n\nThe following errors or abnormalities '\
                     'were found in parsing this email header.'\
                     '\nYour output was likely affected.\n\n')
@@ -32,14 +37,11 @@ def get_warnings(fields_dict):
     if not fields_dict['message_id']:
         warnings_lst.append(
             "### No 'message-id' field included")
+    if not fields_dict['origin_email']:
+        warnings_lst.append(
+            "### Multiple expected fields related to the sender were "\
+            "not found. This email is not standards compliant.")
     if warnings_lst:
         warnings_lst.insert(0, intro_warn)
         warnings_lst.append('\n\n')
-    warn_out = str_from_lst(warnings_lst)
-    return warn_out
-
-# From a list, creates an aggregated string text block.
-def str_from_lst(in_list):
-    linebreak = '\n'
-    new_str = linebreak.join(in_list)
-    return new_str
+    return warnings_lst
