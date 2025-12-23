@@ -3,13 +3,13 @@
 # Proprietary and client information should never be shared. 
 # Edit this file locally with necessary details.
 
-# CONFIG OPTIONS 
-# whether ichi requires user to hit return to submit header
-quickness = False
+# CONFIG OPTIONS
 # whether output is the entire macro or only the metafields
 meta_only = False
 # whether the output is put back on the clipboard
 clip_output = True
+# whether the output should print to the cli
+print_output = True
 # whether additional warnings are printed after macro
 print_warnings = True
 # in the summary sentence, shorten the subject and sender if they're long

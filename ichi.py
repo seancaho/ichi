@@ -8,11 +8,12 @@ from email.header import decode_header, make_header
 import sys
 import logging
 import argparse
+
 # Local modules
-import functions as ichi_fn
+import ichi
 import config
-import macro
-import flags
+
+
 
 # Setup and disable/enable logging
 logging.basicConfig(level=logging.DEBUG, 
@@ -20,15 +21,7 @@ logging.basicConfig(level=logging.DEBUG,
 logging.disable(logging.CRITICAL)
 logging.debug('Start of program.')
 
-# Global variables
-raw_header_str = ''
-client_name = ''
-client_domains = []
-evil_field_out = {}
-clean_field_out = {}
-final_warnings = ''
-sum_statement = ''
-ticket_out = ''
+
 
 parser = argparse.ArgumentParser(
                     prog='IchiScript',
@@ -50,69 +43,70 @@ parser.add_argument("-c", "--client",
                             type=str)
 args = parser.parse_args()
 
-# The primary flow to pull the email header and analyze it
+
+
 def main():
 
-    print(ichi_fn.ichi_intro)
+    print(ichi.intro)
+    print(ichi.mk_heading("ICHI START"))
+    print(ichi.instruct)
 
-    #if config.quickness:
-    #    print(ichi_fn.ichi_instruct)
-    #else:
-    #    input(ichi_fn.ichi_instruct)
-    print(ichi_fn.ichi_instruct)
-    # TODO: reset to normal or remove slowness
-
-    email_obj = ichi_fn.capture_input(
+    email_obj, header_raw = ichi.capture_input(
         args, config.working_directory)
 
-    new_header = ''
-    # TODO: refactor to make this unnecessary
-    for v,s in email_obj.items():
-        new_header += v + ' ' + s + '\n'
-    raw_header_str = new_header
+    print(ichi.mk_heading("CLIENT SELECTION"))
 
-    print(ichi_fn.mk_heading("CLIENT SELECTION"))
-
-    client_name = ichi_fn.client_detection(config.client_info,
+    client_name = ichi.client_detection(config.client_info,
                                 args.client, email_obj)
 
-    client_domains = ichi_fn.get_client_domains(client_name, 
+    client_domains = ichi.get_client_domains(client_name, 
                                             config.client_info)
-    evil_field_out = ichi_fn.create_field_output(email_obj, 
-                                            raw_header_str, 
+    
+    evil_field_out = ichi.create_field_output(email_obj, 
                                             client_domains
                                             )
-    final_warnings = flags.get_warnings(evil_field_out)
+    
+    # create warnings from basic info parsed
+    flags = ichi.get_warnings(evil_field_out)
+    printable_flags = "\n".join(flags)
 
-    if ichi_fn.recip_found_check(evil_field_out) == False:
-        evil_field_out = ichi_fn.manual_get_recip(evil_field_out)
-    clean_field_out = ichi_fn.sanitize_field_output(evil_field_out)
-    primary_meta_out = ichi_fn.create_meta_out(clean_field_out)
-    printable_meta = ichi_fn.str_from_lst(primary_meta_out)
-    sum_statement = macro.get_sum_state(clean_field_out, config.truncate_summary)
-    ticket_out = macro.get_full_macro(sum_statement, 
+    # create final data and build macro
+    clean_field_out = ichi.sanitize_field_output(evil_field_out)
+
+    primary_meta_out = ichi.create_meta_out(clean_field_out)
+
+    printable_meta = "\n".join(primary_meta_out)
+    sum_statement = ichi.get_sum_state(clean_field_out, config.truncate_summary)
+    ticket_out = ichi.get_full_macro(sum_statement, 
                                     printable_meta, 
-                                    raw_header_str,
+                                    header_raw,
                                     config.personal_info
                                     )
 
-    # Print final outputs determined in config
+    # Set output to match config
     if config.meta_only:
         final_output = printable_meta
     else:
         final_output = ticket_out
-        
+
+    # Copy output to clipboard according to config    
     if config.clip_output:
-        ichi_fn.pbcopy(final_output)
+        ichi.pbcopy(final_output)
 
-    print(ichi_fn.mk_heading("OUTPUT"))
-    print(final_output) #TODO: option to turn off printing output
+    # Print output to cli according to config
+    print(ichi.mk_heading("OUTPUT"))
+    if config.print_output:
+        print(final_output)
 
-    if final_warnings and config.print_warnings:
-        print(ichi_fn.mk_heading("WARNINGS"))
-        print(final_warnings)
+        if printable_flags and config.print_warnings:
+            print(ichi.mk_heading("WARNINGS"))
+            print(printable_flags)
+    else:
+        print(ichi.mk_highlight("Script ran successfully."))
 
     sys.exit()
+
+
 
 if __name__ == "__main__":
     main()
