@@ -1,9 +1,19 @@
 #! /usr/bin/env python3
 
-# creates the summary statement
+
+
 def get_sum_state(output_dict, trunc_instruct):
+    """
+    Creates a summary statement for inclusion in the case macro.
+    Truncates fields based on setting in config
+    
+    :param output_dict: dictionary - formatted for output
+    :param trunc_instruct: bool  - truncation instruction from config 
+    """
+
     # add the date
     statement = (f"On {output_dict['received_time']}, ")
+
     # add the recipient
     if len(output_dict['known_recip_eml_lst']) > 1:
         count = len(output_dict['known_recip_eml_lst'])
@@ -12,6 +22,7 @@ def get_sum_state(output_dict, trunc_instruct):
         statement += (f"{output_dict['known_recip_eml_str']} ")
     else:
         statement += ("a user ")
+
     # add the subject
     if not trunc_instruct:
         statement += (f'''received an email with the subject line, '''
@@ -19,6 +30,7 @@ def get_sum_state(output_dict, trunc_instruct):
     elif trunc_instruct:
         statement += (f'''received an email with the subject line, '''
                       f'''"{output_dict['trunc_subject']}"''')        
+    
     # add the from
     if output_dict['from_email']:
         if not trunc_instruct:
@@ -36,10 +48,59 @@ def get_sum_state(output_dict, trunc_instruct):
             statement += (f" from {output_dict['origin_email']}.")
     else:
         statement += ('.')
+        
     return statement
 
-# assembles the full macro for output
+
+
+def create_meta_out(fields):
+    """
+    Returns a list of meta fields for inclusion in the case macro. 
+    
+    :param fields_dict: dictionary - fields formatted for print
+    """
+    #
+
+    meta = []
+    meta.append('Primary Metadata')
+    meta.append('Sender: ' + fields['found_sender']) 
+    meta.append('Recipient(s): ' + fields['known_recip_eml_str'])
+    meta.append('Reported By: ' + fields['reported_by'])
+    meta.append('Subject: ' + fields['subject'])
+    meta.append('Date: ' + fields['received_time'])
+    meta.append('\nContent')
+    meta.append('Attachment(s): N/A')
+    meta.append('Notable hyperlinks: N/A')
+    meta.append('\nAdditional Information (if available)')
+    if fields['return_path']:
+        meta.append('Return-Path: ' + fields['return_path'])
+    meta.append('Originating Email: ' + fields['origin_email'])
+    meta.append('Originating IP: ' + fields['origin_ip'])
+    if fields['reply_to']:
+        meta.append('Reply-To: ' + fields['reply_to'])
+    if fields['x_mailer']:
+        meta.append('X-Mailer: ' + fields['x_mailer'])
+    if fields['user_agent']:
+        meta.append('User-Agent: ' + fields['user_agent'])
+    if fields['message_id']:
+        meta.append('Message_ID: ' + fields['message_id'])
+    # metafields.append('Notable Search: ')
+    # metafields.append('Search Time: ')
+    # metafields.append('Link: ')
+    return meta
+
+
+
 def get_full_macro(statement, meta, raw_header, analyst):
+    """
+    Assembles the final macro in print ready format.
+    
+    :param statement: string - summary statement
+    :param meta: string - metafields
+    :param raw_header: string - raw header as a string
+    :param analyst: dictionary - info from config
+    """
+
     macro = (
 f'''
 Event Summary:
