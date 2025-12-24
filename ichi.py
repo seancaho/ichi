@@ -116,21 +116,27 @@ def analyze():
     email_obj, header_raw = ichi.capture_input(
         args, config.working_directory)
 
-    print(ichi.mk_heading("CLIENT SELECTION"))
+    #print(ichi.mk_heading("CLIENT SELECTION"))
 
-    client_name = ichi.client_detection(config.client_info,
-                                args.client, email_obj)
+    #client_name = ichi.client_detection(config.client_info,
+    #                            args.client, email_obj)
 
-    client_domains = ichi.get_client_domains(client_name, 
-                                            config.client_info)
-    
-    evil_field_out = ichi.create_field_output(email_obj, 
-                                            client_domains
-                                            )
+    #client_domains = ichi.get_client_domains(client_name, 
+    #                                        config.client_info)
+
+    #evil_field_out = ichi.create_field_output(email_obj, 
+    #                                        client_domains
+    #                                        )
+
+    html, plaintext = ichi.get_body(email_obj)
     
     attachments = ichi.get_attachments(email_obj)
 
-    pprint.pprint(attachments)
+    # links = ichi.get_links(email_obj)
+
+    #pprint.pprint(attachments)
+
+    #pprint.pprint(links)
 
 
 def main():
