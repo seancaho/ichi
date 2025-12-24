@@ -2,7 +2,7 @@
 
 from .input import intro, instruct, mk_heading, mk_highlight, pbcopy, \
     capture_input, client_detection, get_client_domains
-# from .extract import extract
+from .extract import get_attachments
 # from .enrich import 
 # from .analyze import
 from .format import create_field_output, sanitize_field_output
