@@ -7,8 +7,6 @@ from dateutil.parser import parse as du_parse
 from .constants import ipv4_regex, rfc1918_regex, regex_smtpfrom
 import re
 import hashlib
-import pprint
-
 
 def get_rec_date(header):
     """
@@ -110,6 +108,33 @@ def get_email_authresults(header):
         return None
     
 
+def make_extension(name):
+    name.split(".")
+    if isinstance(name, list):
+        return name[-1]
+    else: 
+        return name
+
+
+def make_attachment(file):
+    """
+    Returns modeled information in a dictionary about an encoded file.
+    
+    :param file: str (encoded file)
+    """
+    payload = file.get_payload(decode=True)
+    return {
+    "filename": file.get_filename(),
+    "file-extension": make_extension(file.get_filename()),
+    "content-type": file.get_content_type(),
+    "size": len(payload),
+    "content-transfer-encoding": file.get("Content-Transfer-Encoding"),
+    "md5": hashlib.md5(payload).hexdigest(),
+    "sha1": hashlib.sha1(payload).hexdigest(),
+    "sha256": hashlib.sha256(payload).hexdigest(),
+                    }
+
+
 def get_attachments(msg):
     """
     Returns list of objects with structured info for each included
@@ -117,42 +142,25 @@ def get_attachments(msg):
     
     :param msg: parsed email object
     """
-
     if msg.is_multipart() == False:
         return []
     
+    attachment_mimetypes = [
+        "image", 
+        "audio", 
+        "video", 
+        "application"
+        ]
+    
     attached = []
-    nested_eml = []
 
-    for e in msg.iter_parts():
-        if e.is_attachment() == True:
-            filename = e.get_filename()
-            file_extension = filename.split(".")[-1]
-            content_type = e.get_content_type()
-            content_transfer_encoding = e.get("Content-Transfer-Encoding")
-            payload = e.get_payload(decode=True)
-            md5 = hashlib.md5(payload).hexdigest()
-            sha1 = hashlib.sha1(payload).hexdigest()
-            sha256 = hashlib.sha256(payload).hexdigest()
+    for part in msg.iter_parts():
+        type = part.get_content_maintype()
 
-            attached.append({
-                "filename": filename,
-                "file-extension": file_extension,
-                "content-type": content_type,
-                "content-transfer-encoding": content_transfer_encoding,
-                "md5": md5,
-                "sha1": sha1,
-                "sha256": sha256,
-                             })
-            
+        if part.is_attachment() == True:
+            attached.append(make_attachment(part))
 
-        elif e.get_content_type() == "message/rfc822":
-            payload = e.get_payload()
-            nested_eml.append(payload)
-            print(payload.get("subject"))
-            #TODO: add recursing into attached eml for all attachments
-
-
-    pprint.pprint(attached)
-    exit()
+        elif type in attachment_mimetypes:
+            attached.append(make_attachment(part))
+        
     return attached
