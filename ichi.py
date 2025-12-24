@@ -66,6 +66,8 @@ def main():
                                             client_domains
                                             )
     
+    [] = ichi.get_attachments(email_obj)
+    
     # create warnings from basic info parsed
     flags = ichi.get_warnings(evil_field_out)
     printable_flags = "\n".join(flags)

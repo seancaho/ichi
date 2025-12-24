@@ -5,8 +5,9 @@ from dateutil.parser import parse as du_parse
 
 # Built-in modules
 from .constants import ipv4_regex, rfc1918_regex, regex_smtpfrom
-
 import re
+import hashlib
+import pprint
 
 
 def get_rec_date(header):
@@ -107,3 +108,51 @@ def get_email_authresults(header):
                 return smtpfrom.group(2)
     else:
         return None
+    
+
+def get_attachments(msg):
+    """
+    Returns list of objects with structured info for each included
+    attachment. 
+    
+    :param msg: parsed email object
+    """
+
+    if msg.is_multipart() == False:
+        return []
+    
+    attached = []
+    nested_eml = []
+
+    for e in msg.iter_parts():
+        if e.is_attachment() == True:
+            filename = e.get_filename()
+            file_extension = filename.split(".")[-1]
+            content_type = e.get_content_type()
+            content_transfer_encoding = e.get("Content-Transfer-Encoding")
+            payload = e.get_payload(decode=True)
+            md5 = hashlib.md5(payload).hexdigest()
+            sha1 = hashlib.sha1(payload).hexdigest()
+            sha256 = hashlib.sha256(payload).hexdigest()
+
+            attached.append({
+                "filename": filename,
+                "file-extension": file_extension,
+                "content-type": content_type,
+                "content-transfer-encoding": content_transfer_encoding,
+                "md5": md5,
+                "sha1": sha1,
+                "sha256": sha256,
+                             })
+            
+
+        elif e.get_content_type() == "message/rfc822":
+            payload = e.get_payload()
+            nested_eml.append(payload)
+            print(payload.get("subject"))
+            #TODO: add recursing into attached eml for all attachments
+
+
+    pprint.pprint(attached)
+    exit()
+    return attached
