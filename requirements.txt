@@ -1,3 +1,4 @@
 # List of modules requiring installation for ichi script
 python-dateutil
 getch
+beautifulsoup4

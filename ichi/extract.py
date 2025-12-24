@@ -164,3 +164,39 @@ def get_attachments(msg):
             attached.append(make_attachment(part))
         
     return attached
+
+
+def get_body(msg):
+    """
+    Returns parsed and decoded bodies as strings for html body
+    and plaintext body included in the main email.
+    
+    :param msg: parsed email object
+    """
+    links = []
+    multipart_test = msg.is_multipart()
+
+    html_body = None
+    plain_body = None
+
+    if multipart_test == False:
+        html_body = msg.get_body(preferencelist=("html"))
+        plain_body = msg.get_body(preferencelist=("plain"))
+
+    elif multipart_test == True:
+        for part in msg.iter_parts():
+            content_type = part.get_content_type()
+            attachment = part.is_attachment()
+
+            if part is not attachment and content_type == "text/plain":
+                plain_body = part.get_payload(decode=True)
+
+            elif part is not attachment and content_type == "text/html":
+                html_body = part.get_payload(decode=True)
+
+    #print("html")
+    #print(html_body)
+    #print("text:")
+    #print(plain_body)
+
+    return html_body, plain_body
