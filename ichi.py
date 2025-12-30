@@ -114,9 +114,11 @@ def analyze():
     print(ichi.instruct)
 
     email_obj = ichi.capture_input(args, config.working_directory)
-    
-    print(email_obj.get("subject"))
 
+    print(str(email_obj["subject"]))
+
+    hops = ichi.build_hop_data(email_obj)
+    
     html, plaintext = ichi.get_body(email_obj)
     
     attachments = ichi.get_attachments(email_obj)
@@ -124,6 +126,10 @@ def analyze():
     links, mailto = ichi.get_anchors(html)
 
     linked_images, embedded_images = ichi.get_images(html)
+
+    print(f"\n\nHop count: {len(hops)}")
+    pprint.pprint(hops)
+    #print(hops[0])
 
     # print(f"\n\nLink count: {len(links)}")
     # pprint.pprint(links)
@@ -140,6 +146,7 @@ def analyze():
     # print(f"\n\nAttachment count: {len(attachments)}")
     # pprint.pprint(attachments)
 
+    sys.exit()
 
 def main():
     if args.cmd == "phish":

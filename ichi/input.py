@@ -169,8 +169,7 @@ def email_from_file(filepath):
             raw = raw[3:]
 
         if raw.startswith(b'"Received: ') and raw.endswith(b'"'):
-            raw = raw[1:]
-            raw = raw[:-1]
+            raw = raw[1:-1]
 
         parsed_msg = BytesParser( 
             policy=policy.default).parsebytes(

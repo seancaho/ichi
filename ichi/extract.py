@@ -21,7 +21,7 @@ def get_header_text(email):
     """
     header_str = ""
     for v,s in email.items():
-        header_str += v + " " + s + "\n"
+        header_str += str(v) + " " + str(s) + "\n"
     return header_str
 
 
@@ -386,8 +386,8 @@ def get_images(body):
 
 
 
-# make_hop(all_hop_fields) -> dict model of hop
-# get_hops(header) -> array of hop models
+# make_received_data(all_hop_fields) -> dict model of received field
+# build_hop_data(header) -> array of hop models
 
 def make_received_data(field):
     pass
@@ -410,11 +410,11 @@ def build_hop_data(header):
 
         current_field_set.append({
             "field": field_name,
-            "value": v,
+            "value": str(v).strip(),
             "position": field_count,
             })
         
-        field_count =+ 1
+        field_count += 1
 
         if current_field == "received":
             working_hop["hop_index"] = hop_count
@@ -425,6 +425,6 @@ def build_hop_data(header):
 
             current_field_set = []
             working_hop = {}
-            hop_count =+ 1
+            hop_count += 1
 
     return hops
