@@ -115,6 +115,8 @@ def analyze():
 
     email_obj, header_raw = ichi.capture_input(
         args, config.working_directory)
+    
+    print(email_obj.get("subject"))
 
     #print(ichi.mk_heading("CLIENT SELECTION"))
 
@@ -132,11 +134,22 @@ def analyze():
     
     attachments = ichi.get_attachments(email_obj)
 
-    # links = ichi.get_links(email_obj)
+    links, mailto, linked_images, embedded_images = ichi.get_html_elements(html)
 
-    #pprint.pprint(attachments)
+    print(f"\n\nLink count: {len(links)}")
+    pprint.pprint(links)
 
-    #pprint.pprint(links)
+    print(f"\n\nMailto count: {len(mailto)}")
+    pprint.pprint(mailto)
+
+    print(f"\n\nLinked image count: {len(linked_images)}")
+    pprint.pprint(linked_images)
+
+    print(f"\n\nEmbedded image count: {len(embedded_images)}")
+    pprint.pprint(embedded_images)
+
+    print(f"\n\nAttachment count: {len(attachments)}")
+    pprint.pprint(attachments)
 
 
 def main():
