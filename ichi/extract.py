@@ -11,6 +11,20 @@ import hashlib
 from urllib.parse import urlsplit, parse_qs
 from base64 import b64decode
 
+
+def get_header_text(email):
+    """
+    Takes a parsed email object and returns only the headers as a 
+    text block. 
+    
+    :param email: parsed email object
+    """
+    header_str = ""
+    for v,s in email.items():
+        header_str += v + " " + s + "\n"
+    return header_str
+
+
 def get_rec_date(header):
     """
     Returns the datetime from the latest received field
@@ -369,3 +383,48 @@ def get_images(body):
                 imglink_set.add(src)
                 
     return linked_images, embedded_images
+
+
+
+# make_hop(all_hop_fields) -> dict model of hop
+# get_hops(header) -> array of hop models
+
+def make_received_data(field):
+    pass
+
+
+def build_hop_data(header):
+
+    hops = []
+
+    field_count = 0
+    hop_count = 0
+    current_field = None
+    current_field_set = []
+
+    working_hop = {}
+
+    for k,v in reversed(header.items()):
+        field_name = str.lower(k)
+        current_field = field_name
+
+        current_field_set.append({
+            "field": field_name,
+            "value": v,
+            "position": field_count,
+            })
+        
+        field_count =+ 1
+
+        if current_field == "received":
+            working_hop["hop_index"] = hop_count
+            working_hop["fields"] = current_field_set
+            working_hop["received"] = make_received_data(v)
+
+            hops.append(working_hop)
+
+            current_field_set = []
+            working_hop = {}
+            hop_count =+ 1
+
+    return hops

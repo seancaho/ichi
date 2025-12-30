@@ -155,10 +155,29 @@ def capture_clipboard_input():
     return header_str_input
 
 
+def email_from_file(filepath):
+    """
+    Takes a filepath given as a string and returns
+    a parsed email object. Handles minor bytes normalization.
+    
+    :param filepath: filepath as string
+    """
+    with open(filepath, 'rb') as eml_open:
+        raw = eml_open.read()
+        if raw.startswith(b'\xef\xbb\xbf'):
+            raw = raw[3:]
+
+        parsed_msg = BytesParser( 
+            policy=policy.default).parsebytes(
+                raw)
+    
+    return parsed_msg
+
+
 def capture_input(usr_args, wrk_dir):
     '''
     Primary function to capture and parse user input. 
-    Returns a parsed email object and a header as string.
+    Returns a parsed email object.
 
     :param usr_args: cli arguments from argparse
     :param wrk_dir: working directory from config file
@@ -171,19 +190,12 @@ def capture_input(usr_args, wrk_dir):
             policy=policy.default).parsestr(
                 raw_txt)
 
-        
     elif usr_args.input == 'working':
         if wrk_dir == '/path/to/working/dir':
             wrk_dir = str(Path.home()) + '/Downloads'
         target_email = get_latest_eml(wrk_dir)
-        with open(target_email, 'rb') as eml_open:
-            raw = eml_open.read()
-            if raw.startswith(b'\xef\xbb\xbf'):
-                raw = raw[3:]
 
-            parsed_msg = BytesParser( 
-                policy=policy.default).parsebytes(
-                    raw)
+        parsed_msg = email_from_file(target_email)
 
     else:
         filepath = usr_args.input
@@ -194,21 +206,10 @@ def capture_input(usr_args, wrk_dir):
             print("Specified file isn't EML.")
             exit()
 
-        with open(filepath, "rb") as eml_open:
-            raw = eml_open.read()
-            if raw.startswith(b'\xef\xbb\xbf'):
-                raw = raw[3:]
+        parsed_msg = email_from_file(filepath)
 
-            parsed_msg = BytesParser( 
-                policy=policy.default).parsebytes(
-                    raw)
-
-    raw_header_str = ""        
-    for v,s in parsed_msg.items():
-        raw_header_str += v + ' ' + s + "\n"
-
-    return parsed_msg, raw_header_str
-    
+    return parsed_msg
+ 
 
 def get_client_cli(clinfo):
     """

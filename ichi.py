@@ -52,8 +52,8 @@ def phish():
     print(ichi.mk_heading("ICHI START"))
     print(ichi.instruct)
 
-    email_obj, header_raw = ichi.capture_input(
-        args, config.working_directory)
+    email_obj = ichi.capture_input(args, config.working_directory)
+    header_raw = ichi.get_header_text(email_obj)
 
     print(ichi.mk_heading("CLIENT SELECTION"))
 
@@ -113,8 +113,7 @@ def analyze():
     print(ichi.mk_heading("ICHI START"))
     print(ichi.instruct)
 
-    email_obj, header_raw = ichi.capture_input(
-        args, config.working_directory)
+    email_obj = ichi.capture_input(args, config.working_directory)
     
     print(email_obj.get("subject"))
 
