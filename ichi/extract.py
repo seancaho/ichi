@@ -2,11 +2,14 @@
 
 # Modules requiring installation
 from dateutil.parser import parse as du_parse
+from bs4 import BeautifulSoup, SoupStrainer
 
 # Built-in modules
 from .constants import ipv4_regex, rfc1918_regex, regex_smtpfrom
 import re
 import hashlib
+from urllib.parse import urlsplit, parse_qs
+from base64 import b64decode
 
 def get_rec_date(header):
     """
@@ -116,23 +119,25 @@ def make_extension(name):
         return name
 
 
-def make_attachment(file):
+def make_attachment_data(file):
     """
     Returns modeled information in a dictionary about an encoded file.
     
     :param file: str (encoded file)
     """
     payload = file.get_payload(decode=True)
-    return {
-    "filename": file.get_filename(),
-    "file-extension": make_extension(file.get_filename()),
-    "content-type": file.get_content_type(),
-    "size": len(payload),
-    "content-transfer-encoding": file.get("Content-Transfer-Encoding"),
-    "md5": hashlib.md5(payload).hexdigest(),
-    "sha1": hashlib.sha1(payload).hexdigest(),
-    "sha256": hashlib.sha256(payload).hexdigest(),
-                    }
+    attachment_data = {
+        "filename": file.get_filename(),
+        "file_extension": make_extension(file.get_filename()),
+        "content_type": file.get_content_type(),
+        "size": len(payload),
+        "content_transfer_encoding": file.get("Content-Transfer-Encoding"),
+        "md5": hashlib.md5(payload).hexdigest(),
+        "sha1": hashlib.sha1(payload).hexdigest(),
+        "sha256": hashlib.sha256(payload).hexdigest(),
+    }
+
+    return attachment_data
 
 
 def get_attachments(msg):
@@ -158,10 +163,10 @@ def get_attachments(msg):
         type = part.get_content_maintype()
 
         if part.is_attachment() == True:
-            attached.append(make_attachment(part))
+            attached.append(make_attachment_data(part))
 
         elif type in attachment_mimetypes:
-            attached.append(make_attachment(part))
+            attached.append(make_attachment_data(part))
         
     return attached
 
@@ -173,30 +178,183 @@ def get_body(msg):
     
     :param msg: parsed email object
     """
-    links = []
-    multipart_test = msg.is_multipart()
 
     html_body = None
     plain_body = None
 
-    if multipart_test == False:
-        html_body = msg.get_body(preferencelist=("html"))
-        plain_body = msg.get_body(preferencelist=("plain"))
-
-    elif multipart_test == True:
-        for part in msg.iter_parts():
-            content_type = part.get_content_type()
-            attachment = part.is_attachment()
-
-            if part is not attachment and content_type == "text/plain":
-                plain_body = part.get_payload(decode=True)
-
-            elif part is not attachment and content_type == "text/html":
-                html_body = part.get_payload(decode=True)
-
-    #print("html")
-    #print(html_body)
-    #print("text:")
-    #print(plain_body)
+    html_body = msg.get_body(preferencelist=("html"))
+    if html_body:
+        html_body = html_body.get_content() 
+    plain_body = msg.get_body(preferencelist=("plain"))
+    if plain_body:
+        plain_body = plain_body.get_content()
 
     return html_body, plain_body
+
+
+def make_link_data(anchor):
+    """
+    Takes a parsed html object and returns structured data for the 
+    link included in the anchor tag. 
+    
+    :param anchor: soup object
+    """
+    href = anchor.get("href")
+    original = anchor.get("originalsrc")
+    text = anchor.get_text(strip=True)
+    safelink = None
+
+    if original:
+        rewritten = True
+        url = original
+        safelink = {
+            "rewritten_url": href,
+        }
+    else:
+        url = href
+        rewritten = False
+
+    try:
+        split_url = urlsplit(url)
+        path = url.split(split_url.hostname)[-1]
+    except:
+        path = None
+
+    link_data = {
+        "url": url,
+        "domain": split_url.hostname,
+        "scheme": split_url.scheme,
+        "path": path,
+        "display_text": text,
+        "rewritten": rewritten,
+        "safelink": safelink
+    }
+
+    return link_data
+    
+
+def make_mailto_data(mailto):
+    """
+    Takes a parsed html object and returns structured data for the 
+    mailto emails included in the anchor tag. 
+    
+    :param mailto: soup object
+    """
+    url = mailto.get("href")
+    split_url = urlsplit(url)
+    full_params = parse_qs(split_url.query)
+
+    recipients = set()
+    recipients.add(split_url.path)
+
+    for k,v in full_params:
+        for i in v:
+            recipients.add(i)
+
+    mailto_data = {
+        "url": url,
+        "recipients": list(recipients)
+    }
+
+    return mailto_data
+
+
+def make_imglink_data(img):
+    """
+    Takes a parsed html object and returns structured data for the 
+    linked images included in the image tag. 
+    
+    :param img: soup object
+    """
+    src = img.get("src")
+
+    split_url = urlsplit(src)
+
+    link_data = {
+        "url": src,
+        "domain": split_url.hostname,
+        "scheme": split_url.scheme,
+    }
+    return link_data
+
+
+def make_embedded_data(embed):
+    """
+    Takes a parsed html object and returns structured data for the 
+    embedded image object included in the image tag. 
+    
+    :param embed: soup object
+    """
+    src = embed.get("src")
+
+    delimeters = r"[:;,]"
+    split_src = re.split(delimeters, src)
+    filetype, encoding, data = split_src[-3], split_src[-2], split_src[-1]
+    extension = filetype.split("/")[-1]
+
+    if encoding == "base64":
+        decoded_data = b64decode(data)
+
+    embed_data = {
+        "file_extension": extension,
+        "size": len(decoded_data),
+        "encoding": encoding,
+        "md5": hashlib.md5(decoded_data).hexdigest(),
+        "sha1": hashlib.sha1(decoded_data).hexdigest(),
+        "sha256": hashlib.sha256(decoded_data).hexdigest(),
+    }
+    return embed_data
+
+
+def get_html_elements(body):
+    """
+    Takes a parsed html body and further parses specific tags into
+    structured data.
+    
+    :param body: parsed email object
+    """
+    #TODO: implement tldextract
+    links = []
+    mailto = []
+    linked_images = []
+    embedded_images = []
+
+    strainer = SoupStrainer(["a", "img"])
+
+    soup = BeautifulSoup(body, "html.parser", parse_only=strainer)
+
+    anchors = soup.find_all("a")
+    imgs = soup.find_all("img")
+
+    link_set = set()
+    for a in anchors:
+        testurla = a.get("href")
+        testurlb = a.get("originalsrc")
+
+        if testurla.startswith("mailto:"):
+            mailto.append(make_mailto_data(a))
+
+        elif testurlb:
+            if testurlb not in link_set:
+                links.append(make_link_data(a))
+                link_set.add(testurlb)
+        elif testurla and testurla not in link_set:
+            links.append(make_link_data(a))
+            link_set.add(testurla)            
+
+    imglink_set = set()
+    for i in imgs:
+        src = i.get("src")
+
+        if src.startswith("data:image"):
+            embed_data = make_embedded_data(i)
+            if embed_data["sha256"] not in imglink_set:
+                embedded_images.append(embed_data)
+                imglink_set.add(embed_data["sha256"])
+
+        elif src.startswith("http"):
+            if src not in imglink_set:
+                linked_images.append(make_imglink_data(i))
+                imglink_set.add(src)
+
+    return links, mailto, linked_images, embedded_images
