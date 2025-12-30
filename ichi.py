@@ -118,38 +118,28 @@ def analyze():
     
     print(email_obj.get("subject"))
 
-    #print(ichi.mk_heading("CLIENT SELECTION"))
-
-    #client_name = ichi.client_detection(config.client_info,
-    #                            args.client, email_obj)
-
-    #client_domains = ichi.get_client_domains(client_name, 
-    #                                        config.client_info)
-
-    #evil_field_out = ichi.create_field_output(email_obj, 
-    #                                        client_domains
-    #                                        )
-
     html, plaintext = ichi.get_body(email_obj)
     
     attachments = ichi.get_attachments(email_obj)
 
-    links, mailto, linked_images, embedded_images = ichi.get_html_elements(html)
+    links, mailto = ichi.get_anchors(html)
 
-    print(f"\n\nLink count: {len(links)}")
-    pprint.pprint(links)
+    linked_images, embedded_images = ichi.get_images(html)
 
-    print(f"\n\nMailto count: {len(mailto)}")
-    pprint.pprint(mailto)
+    # print(f"\n\nLink count: {len(links)}")
+    # pprint.pprint(links)
 
-    print(f"\n\nLinked image count: {len(linked_images)}")
-    pprint.pprint(linked_images)
+    # print(f"\n\nMailto count: {len(mailto)}")
+    # pprint.pprint(mailto)
 
-    print(f"\n\nEmbedded image count: {len(embedded_images)}")
-    pprint.pprint(embedded_images)
+    # print(f"\n\nLinked image count: {len(linked_images)}")
+    # pprint.pprint(linked_images)
 
-    print(f"\n\nAttachment count: {len(attachments)}")
-    pprint.pprint(attachments)
+    # print(f"\n\nEmbedded image count: {len(embedded_images)}")
+    # pprint.pprint(embedded_images)
+
+    # print(f"\n\nAttachment count: {len(attachments)}")
+    # pprint.pprint(attachments)
 
 
 def main():

@@ -306,25 +306,19 @@ def make_embedded_data(embed):
     return embed_data
 
 
-def get_html_elements(body):
+def get_anchors(body):
     """
     Takes a parsed html body and further parses specific tags into
-    structured data.
+    structured data. Returns lists of entities.
     
     :param body: parsed email object
     """
-    #TODO: implement tldextract
     links = []
     mailto = []
-    linked_images = []
-    embedded_images = []
 
-    strainer = SoupStrainer(["a", "img"])
-
+    strainer = SoupStrainer(["a"])
     soup = BeautifulSoup(body, "html.parser", parse_only=strainer)
-
     anchors = soup.find_all("a")
-    imgs = soup.find_all("img")
 
     link_set = set()
     for a in anchors:
@@ -342,6 +336,23 @@ def get_html_elements(body):
             links.append(make_link_data(a))
             link_set.add(testurla)            
 
+    return links, mailto
+
+
+def get_images(body):
+    """
+    Takes a parsed html body and further parses specific tags into
+    structured data. Returns lists of entities.
+    
+    :param body: parsed email object
+    """
+    linked_images = []
+    embedded_images = []
+
+    strainer = SoupStrainer(["img"])
+    soup = BeautifulSoup(body, "html.parser", parse_only=strainer)
+    imgs = soup.find_all("img")      
+
     imglink_set = set()
     for i in imgs:
         src = i.get("src")
@@ -356,5 +367,5 @@ def get_html_elements(body):
             if src not in imglink_set:
                 linked_images.append(make_imglink_data(i))
                 imglink_set.add(src)
-
-    return links, mailto, linked_images, embedded_images
+                
+    return linked_images, embedded_images
