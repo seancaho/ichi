@@ -164,8 +164,13 @@ def email_from_file(filepath):
     """
     with open(filepath, 'rb') as eml_open:
         raw = eml_open.read()
+
         if raw.startswith(b'\xef\xbb\xbf'):
             raw = raw[3:]
+
+        if raw.startswith(b'"Received: ') and raw.endswith(b'"'):
+            raw = raw[1:]
+            raw = raw[:-1]
 
         parsed_msg = BytesParser( 
             policy=policy.default).parsebytes(
