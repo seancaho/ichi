@@ -2,6 +2,7 @@
 
 # Modules requiring installation
 from dateutil.parser import parse as du_parse
+from dateutil.tz import tzutc
 from bs4 import BeautifulSoup, SoupStrainer
 
 # Built-in modules
@@ -11,6 +12,7 @@ import hashlib
 from urllib.parse import urlsplit, parse_qs
 from base64 import b64decode
 
+from pprint import pprint
 
 def get_header_text(email):
     """
@@ -385,16 +387,185 @@ def get_images(body):
     return linked_images, embedded_images
 
 
+def normalize_date(gnarly_date):
+    """
+    Takes a raw datetime as a string. Makes minor efforts to normalize
+    the data. Parses the string. Returns a normalized timestamp in UTC
+    as a string.
+    
+    :param gnarly_date: raw datetime string
+    """
+    cleaned_date = re.sub(r"m=\+[0-9.]+(?=\s|$)", "", gnarly_date).strip()
 
-# make_received_data(all_hop_fields) -> dict model of received field
-# build_hop_data(header) -> array of hop models
+    parsed_date = du_parse(cleaned_date, fuzzy=True)
+
+    date_utc = parsed_date.astimezone(tzutc())
+
+    tidy_date = date_utc.strftime("%Y-%m-%d %H:%M:%S %z")
+    return tidy_date
+
+
+def get_parenthetical_ranges(test, paren_type):
+    """
+    Finds the start and end indices of substrings enclosed by 
+    parentheses within a string. Enclosure type, parentheses or 
+    other, can be given in paren_type.
+    Returns a list of tuples with start, end indices.
+    Breaks and returns an empty array in case of failure. 
+    
+    :param test: string to test
+    :param paren_type: tuple of start and end enclosure
+    """
+    open = []
+    closed = []
+    left = paren_type[0]
+    right = paren_type[1]
+
+    if test.count(left) != test.count(right):
+        #TODO: good place for debugging - 
+            # unbalanced parentheses in received
+        closed = closed
+
+    elif left == right:
+        for i in range(len(test)):
+            if test[i] == left and len(open) == 0:
+                open.append((i,None))
+            elif test[i] == left and len(open) > 0:
+                open_set = open.pop(-1)
+                closed.append((open_set[0], i))
+
+    else:
+        for i in range(len(test)):
+            if test[i] == left:
+                open.append((i,None))
+            elif test[i] == right:
+                if len(open) < 1:
+                    #TODO: good place for debugging - 
+                        # close parenthesis without open
+                    break
+                open_set = open.pop(-1)
+                closed.append((open_set[0], i))
+
+    return closed
+
 
 def make_received_data(field):
-    pass
+    """
+    Takes a received field string and returns structured data.
+    Returns a dictionary.
+    
+    :param field: received header string
+    """
+    delims = {"from": None, 
+              "by": None,
+              "with": None,
+              "id": None,
+              "for": None,
+              "via": None,
+              ";": None,
+              }
+    assignments = {"from": "submitter", 
+              "by": "receiver",
+              "with": "type",
+              "id": "id",
+              "for": "for",
+              "via": "via",
+              ";": "time",
+              }
+    data = {"submitter": None, 
+            "receiver": None,
+            "type": None,
+            "id": None,
+            "for": None,
+            "via": None,
+            "time": None,
+            "field": field,
+            }
+    
+    working_field = field
+
+    # best effor to handle bad date separation
+    day_match = (r"\s*(Mon|Tue|Wed|Thu|Fri|Sat|Sun)"
+                 r"(?!.*\b(Mon|Tue|Wed|Thu|Fri|Sat|Sun)\b)"
+                )
+    date_match = (r"\s*(\d{4}-\d{1,2}-\d{1,2})"
+                  r"(?!.*\b(\d{4}-\d{1,2}-\d{1,2})\b)"
+                )
+        
+    date_delim = working_field.rfind(";")
+    if date_delim == -1:
+        working_field = re.sub(day_match, r"; \1", working_field)
+        date_delim = working_field.rfind(";")
+    if date_delim == -1:
+        working_field = re.sub(date_match, r"; \1", working_field)
+        date_delim = working_field.rfind(";")
+
+    # set and remove date from working
+    delims[";"] = date_delim
+    date_slice = working_field[date_delim:].removeprefix(";").strip()
+    data[assignments[";"]] = normalize_date(date_slice)
+    working_field = working_field[:date_delim]
+
+    # get parenthetical ranges for delimeter exlusion
+    paren_ranges = []
+    types = [("(", ")"), ("[", "]"), ("'", "'"), ('"', '"')]
+    for t in types:
+        if t[0] in working_field:
+            paren_ranges.extend(get_parenthetical_ranges(working_field, t))
+
+    # capture lists of delimiters outside of parentheticals
+    for d in delims.keys():
+        if d in working_field:
+            # find all indices for the delimiter
+            found_indices = []
+            test_delim = "\b"+d+"\b"
+            for match in re.finditer(rf"\b{re.escape(d)}\b", 
+                                     working_field, 
+                                     flags=re.IGNORECASE):
+
+                found_indices.append(match.start())
+            # keep only those indices that are not in a parenthetical
+            good_indices = []
+            for i in found_indices:
+                index_is_valid = True
+                for r in paren_ranges:
+                    if r[0] <= i <= r[1]:
+                        index_is_valid = False
+                        break
+                if index_is_valid:
+                    good_indices.append(i)
+            # if more than one index is found, take the left most
+            if good_indices:
+                delims[d] = min(good_indices) if good_indices else None
+            else:
+                delims[d] = None
+
+    # check that slices are currently in order
+    ordered = True
+    last_value = 0
+    for k,v in reversed(delims.items()):
+        if v and v >= last_value:
+            last_value = v
+            ordered = False
+    
+    # slice field into data
+    for k,v in reversed(delims.items()):
+        if v is not None and k != ";":
+            data_slice = working_field[v:].removeprefix(k).strip()
+            data[assignments[k]] = data_slice
+            if v != 0:
+                working_field = working_field[:v]
+
+    return data
 
 
 def build_hop_data(header):
-
+    """
+    Builds all fields related to a single hop in the header
+    into structured data. Returns an array of dictionaries.
+    
+    :param header: parsed email object
+    """
     hops = []
 
     field_count = 0
@@ -408,9 +579,11 @@ def build_hop_data(header):
         field_name = str.lower(k)
         current_field = field_name
 
+        value = " ".join(str(v).split())
+
         current_field_set.append({
             "field": field_name,
-            "value": str(v).strip(),
+            "value": value,
             "position": field_count,
             })
         
@@ -419,7 +592,7 @@ def build_hop_data(header):
         if current_field == "received":
             working_hop["hop_index"] = hop_count
             working_hop["fields"] = current_field_set
-            working_hop["received"] = make_received_data(v)
+            working_hop["received"] = make_received_data(value)
 
             hops.append(working_hop)
 

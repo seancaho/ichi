@@ -127,8 +127,8 @@ def analyze():
 
     linked_images, embedded_images = ichi.get_images(html)
 
-    print(f"\n\nHop count: {len(hops)}")
-    pprint.pprint(hops)
+    #print(f"\n\nHop count: {len(hops)}")
+    #pprint.pprint(hops)
     #print(hops[0])
 
     # print(f"\n\nLink count: {len(links)}")
