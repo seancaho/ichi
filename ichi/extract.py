@@ -479,7 +479,6 @@ def make_received_data(field):
             "for": None,
             "via": None,
             "time": None,
-            "field": field,
             }
     
     working_field = field
