@@ -14,6 +14,10 @@ from base64 import b64decode
 
 from pprint import pprint
 
+authres_property = re.compile(
+    r"\b[-a-zA-Z0-9\._\-#=]+\s?=\s?[-a-zA-Z0-9@:%\._\+~#=]+\b", 
+    re.IGNORECASE | re.ASCII)
+
 def get_header_text(email):
     """
     Takes a parsed email object and returns only the headers as a 
@@ -405,6 +409,42 @@ def normalize_date(gnarly_date):
     return tidy_date
 
 
+def slice_remover(text, span, remove_delims=False):
+    """
+    Removes a delimited slice from a string.
+    Returns:
+        (remaining_text, removed_slice)
+
+    Start and end indices should be for the delimiter.
+    If indices are invalid, returns (original_text, "")
+    Optionally, strips the delimiters from removed_slice
+    
+    :param text: string
+    :param range: tuple of delimiter indices
+    :param remove_delims: bool
+    """
+    t_length = len(text)
+    s, e = span
+
+    # end is exclusive
+    # increment 1 to include last bound
+    # set to end if appropriate
+    e = e + 1 if e < t_length else None
+
+    # adjust slice ends for remove_delims
+    if remove_delims:
+        slice_s = s + 1
+        slice_e = e - 1
+    else:
+        slice_s = s
+        slice_e = e
+    
+    if not (0 <= s <= e <= t_length):
+        return text, ""       
+    
+    return text[:s].strip() + " " + text[e:].strip(), text[slice_s:slice_e]
+
+
 def get_parenthetical_ranges(test, paren_type):
     """
     Finds the start and end indices of substrings enclosed by 
@@ -424,7 +464,7 @@ def get_parenthetical_ranges(test, paren_type):
     if test.count(left) != test.count(right):
         #TODO: good place for debugging - 
             # unbalanced parentheses in received
-        closed = closed
+        return closed
 
     elif left == right:
         for i in range(len(test)):
@@ -442,14 +482,15 @@ def get_parenthetical_ranges(test, paren_type):
                 if len(open) < 1:
                     #TODO: good place for debugging - 
                         # close parenthesis without open
-                    break
+                    closed = []
+                    return closed
                 open_set = open.pop(-1)
                 closed.append((open_set[0], i))
 
     return closed
 
 
-def make_received_data(field):
+def make_received_data(field, field_n):
     """
     Takes a received field string and returns structured data.
     Returns a dictionary.
@@ -557,6 +598,100 @@ def make_received_data(field):
 
     return data
 
+def authresults_details(fragment):
+    data = {}
+    
+    # find commented ranges
+    comment_bounds = ("(", ")")
+    comment_locations = []
+    comment_locations.extend(
+        get_parenthetical_ranges(fragment, comment_bounds)
+    )
+
+    # remove a single comment
+    # ignore if none or more than one
+    if len(comment_locations) == 1:
+        for c in comment_locations:
+            fragment, comment = slice_remover(fragment, c, True)
+        data["comments"] = comment
+
+    #TODO: parse comment content for common e.g. sender IP is ...
+    
+    # find and assign data from method and properties
+    properties = re.findall(authres_property, fragment)
+
+    for i in range(len(properties)):
+        p = properties[i]
+        ptype_end = p.find("=")
+        pvalue_start = ptype_end + 1
+        if i == 0:
+            method = p[:ptype_end]
+            if "/" in method:
+                method_split = method.split("/")
+                method = method_split[0]
+                if len(method_split) == 2:
+                    data["version"] = method_split[1]
+            data["verdict"] = verdict = p[pvalue_start:]
+        else:
+            data[p[:ptype_end]] = p[pvalue_start:]
+
+    #TODO: determine whether we'll relabel properties
+    
+    return method, verdict, data
+
+
+def make_authresults_data(field, field_n):
+    
+    methods = [ "spf", "dkim", "dmarc", "iprev", "auth", "compauth"]
+
+    data = {}
+
+    # split the field into its components
+    field_split = [i.strip() for i in field.split(";")]
+
+    for e in range(len(field_split)):
+        f = field_split[e]
+
+        # make an authentication server record if the first element
+        # appears to be one
+        if e == 0 and "=" not in f:
+
+            authserv_elements = f.split()
+
+            for a in range(len(authserv_elements)):
+                elem = authserv_elements[a]
+                if elem.startswith("(") and elem.endswith(")"):
+                    authserv_elements.pop(a)
+            
+            if len(authserv_elements) == 2:
+                data["authserv"] = authserv_elements[0]
+                data["authserv_ver"] = authserv_elements[1]
+            elif len(authserv_elements) == 1:
+                data["authserv"] = authserv_elements[0]
+
+        # otherwise parse expected methods
+        else:
+            test_method = f[:f.find("=")]
+            if "/" in test_method:
+                test_method = test_method.split("/")[0]
+            if test_method in methods:
+                method_name, verdict, details = authresults_details(f)
+                detail_label = method_name + "_details"
+                data[detail_label] = details
+                data[method_name] = verdict
+
+    data["type"] = field_n
+
+    return data
+
+
+# map primary extraction function to field name
+extractors = {
+    "authentication-results": make_authresults_data,
+    "authentication-results-original": make_authresults_data,
+    "received": make_received_data
+}
+
 
 def build_hop_data(header):
     """
@@ -575,23 +710,25 @@ def build_hop_data(header):
     working_hop = {}
 
     for k,v in reversed(header.items()):
-        field_name = str.lower(k)
-        current_field = field_name
+        field = str.lower(k)
+        current_field = field
 
         value = " ".join(str(v).split())
 
         current_field_set.append({
-            "field": field_name,
+            "field": field,
             "value": value,
             "position": field_count,
             })
         
         field_count += 1
 
+        if field in extractors.keys():
+            working_hop[field] = extractors[field](value, field)
+
         if current_field == "received":
             working_hop["hop_index"] = hop_count
             working_hop["fields"] = current_field_set
-            working_hop["received"] = make_received_data(value)
 
             hops.append(working_hop)
 

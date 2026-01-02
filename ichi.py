@@ -8,7 +8,7 @@ from email.header import decode_header, make_header
 import sys
 import logging
 import argparse
-import pprint
+from pprint import pprint
 
 # Local modules
 import ichi
@@ -109,9 +109,9 @@ def phish():
 
 def analyze():
 
-    print(ichi.intro)
+    #print(ichi.intro)
     print(ichi.mk_heading("ICHI START"))
-    print(ichi.instruct)
+    #print(ichi.instruct)
 
     email_obj = ichi.capture_input(args, config.working_directory)
 
@@ -127,9 +127,21 @@ def analyze():
 
     linked_images, embedded_images = ichi.get_images(html)
 
-    #print(f"\n\nHop count: {len(hops)}")
+    test_hop = -5
+    print(f"\n\nTotal Hops: {len(hops)} -----------------------")
     #pprint.pprint(hops)
-    #print(hops[0])
+    #print(f"Test Hop: {test_hop} -----------------------")
+    #pprint.pprint(hops[test_hop])
+    for h in hops:
+        ind = h["hop_index"]
+        if "authentication-results" in h.keys():
+            print(f"\n\nHop index: {ind} -----------------------")
+            pprint(h["authentication-results"])
+            if "authentication-results-original" in h.keys():
+                pprint(h["authentication-results-original"])
+        elif "authentication-results-original" in h.keys():
+            print(f"\n\nHop index: {ind} -----------------------")
+            pprint(h["authentication-results"])            
 
     # print(f"\n\nLink count: {len(links)}")
     # pprint.pprint(links)
