@@ -137,7 +137,7 @@ def get_email_authresults(header):
     
 
 def make_extension(name):
-    name.split(".")
+    name = name.split(".")
     if isinstance(name, list):
         return name[-1]
     else: 
@@ -272,7 +272,7 @@ def make_mailto_data(mailto):
     recipients = set()
     recipients.add(split_url.path)
 
-    for k,v in full_params:
+    for k,v in full_params.items():
         for i in v:
             recipients.add(i)
 
@@ -604,6 +604,12 @@ def make_received_data(field, field_n):
     return data
 
 def authresults_details(fragment):
+    """
+    Takes a fragment of an authentication-results header and parses
+    the included elements. Returns a dictionary of structured data.
+    
+    :param fragment: str
+    """
     data = {}
     
     # find commented ranges
@@ -627,6 +633,8 @@ def authresults_details(fragment):
                 data["client_ip"] = ip_match.group(1)
     
     # find and assign data from method and properties
+    # standard for methods, properties, and results:
+    # https://datatracker.ietf.org/doc/html/rfc8601#section-2.5
     properties = re.findall(authres_property, fragment)
 
     for i in range(len(properties)):
@@ -648,7 +656,13 @@ def authresults_details(fragment):
 
 
 def make_authresults_data(field, field_n):
+    """
+    Given an authentication-results header field, fully parses the field
+    and returns structured data in a dictionary.
     
+    :param field: str of field content
+    :param field_n: str of field name
+    """
     methods = [ "spf", "dkim", "dmarc", "iprev", "auth", "compauth"]
 
     data = {}
