@@ -111,11 +111,8 @@ def analyze():
 
     #print(ichi.intro)
     print(ichi.mk_heading("ICHI START"))
-    #print(ichi.instruct)
 
     email_obj = ichi.capture_input(args, config.working_directory)
-
-    print(str(email_obj["subject"]))
 
     hops = ichi.build_hop_data(email_obj)
     
@@ -125,38 +122,7 @@ def analyze():
 
     links, mailto = ichi.get_anchors(html)
 
-    linked_images, embedded_images = ichi.get_images(html)
-
-    test_hop = -5
-    print(f"\n\nTotal Hops: {len(hops)} -----------------------")
-    #pprint.pprint(hops)
-    #print(f"Test Hop: {test_hop} -----------------------")
-    #pprint.pprint(hops[test_hop])
-    for h in hops:
-        ind = h["hop_index"]
-        if "authentication-results" in h.keys():
-            print(f"\n\nHop index: {ind} -----------------------")
-            pprint(h["authentication-results"])
-            if "authentication-results-original" in h.keys():
-                pprint(h["authentication-results-original"])
-        elif "authentication-results-original" in h.keys():
-            print(f"\n\nHop index: {ind} -----------------------")
-            pprint(h["authentication-results-original"])            
-
-    # print(f"\n\nLink count: {len(links)}")
-    # pprint.pprint(links)
-
-    # print(f"\n\nMailto count: {len(mailto)}")
-    # pprint.pprint(mailto)
-
-    # print(f"\n\nLinked image count: {len(linked_images)}")
-    # pprint.pprint(linked_images)
-
-    # print(f"\n\nEmbedded image count: {len(embedded_images)}")
-    # pprint.pprint(embedded_images)
-
-    # print(f"\n\nAttachment count: {len(attachments)}")
-    # pprint.pprint(attachments)
+    linked_images, embedded_images = ichi.get_images(html)          
 
     sys.exit()
 
