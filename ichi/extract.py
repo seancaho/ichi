@@ -12,8 +12,6 @@ import hashlib
 from urllib.parse import urlsplit, parse_qs
 from base64 import b64decode
 
-from pprint import pprint
-
 authres_property = re.compile(
     r"\b[-a-zA-Z0-9\._\-#=]+\s?=\s?[-a-zA-Z0-9@:%\._\+~#=]+\b", 
     re.IGNORECASE)
@@ -137,7 +135,7 @@ def get_email_authresults(header):
     
 
 def make_extension(name):
-    name = name.split(".")
+    name = name.split(".") if name else None
     if isinstance(name, list):
         return name[-1]
     else: 
@@ -500,7 +498,8 @@ def make_received_data(field, field_n):
     Takes a received field string and returns structured data.
     Returns a dictionary.
     
-    :param field: received header string
+    :param field: str of field content
+    :param field_n: str of field name
     """
     delims = {"from": None, 
               "by": None,
@@ -602,6 +601,37 @@ def make_received_data(field, field_n):
                 working_field = working_field[:v]
 
     return data
+
+
+def make_recspf_data(field, field_n):
+    """
+    Given a received-spf header field, fully parses the field
+    and returns structured data in a dictionary.
+    
+    :param field: str of field content
+    :param field_n: str of field name
+    """
+    data = {}
+    recspf_properties = {
+        "helo": "smtp_greeting",
+        "client-ip": "client_ip",
+        "receiver": "receiver",
+        "envelope-from": "envelope_from"
+    }
+
+    data["verdict"] = field.partition(" ")[0]
+
+    properties = re.findall(authres_property, field)
+
+    for i in range(len(properties)):
+        p = properties[i]
+        ptype_end = p.find("=")
+        pvalue_start = ptype_end + 1
+        if p[:ptype_end] in recspf_properties.keys():
+            data[recspf_properties[p[:ptype_end]]] = p[pvalue_start:]
+
+    return data
+
 
 def authresults_details(fragment):
     """
@@ -710,6 +740,7 @@ def make_authresults_data(field, field_n):
 extractors = {
     "authentication-results": make_authresults_data,
     "authentication-results-original": make_authresults_data,
+    "received-spf": make_recspf_data,
     "received": make_received_data
 }
 
