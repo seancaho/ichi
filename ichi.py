@@ -141,7 +141,7 @@ def analyze():
                 pprint(h["authentication-results-original"])
         elif "authentication-results-original" in h.keys():
             print(f"\n\nHop index: {ind} -----------------------")
-            pprint(h["authentication-results"])            
+            pprint(h["authentication-results-original"])            
 
     # print(f"\n\nLink count: {len(links)}")
     # pprint.pprint(links)

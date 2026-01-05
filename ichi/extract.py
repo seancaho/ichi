@@ -16,7 +16,12 @@ from pprint import pprint
 
 authres_property = re.compile(
     r"\b[-a-zA-Z0-9\._\-#=]+\s?=\s?[-a-zA-Z0-9@:%\._\+~#=]+\b", 
-    re.IGNORECASE | re.ASCII)
+    re.IGNORECASE)
+
+authres_clientip = re.compile(
+    r"sender\ ip\ is\ ([-a-zA-Z0-9@:%\._\+~#=]+)" # microsoft
+    r"|domain\ of\ [-a-zA-Z0-9@:%\._\+~#=]+\ designates\ ([0-9a-fA-F\.\:]+)\ as", # google
+    re.IGNORECASE)
 
 def get_header_text(email):
     """
@@ -615,7 +620,11 @@ def authresults_details(fragment):
             fragment, comment = slice_remover(fragment, c, True)
         data["comments"] = comment
 
-    #TODO: parse comment content for common e.g. sender IP is ...
+        # take tested IP from found comment
+        if comment:
+            ip_match = re.match(authres_clientip, comment)
+            if ip_match:
+                data["client_ip"] = ip_match.group(1)
     
     # find and assign data from method and properties
     properties = re.findall(authres_property, fragment)
@@ -634,8 +643,6 @@ def authresults_details(fragment):
             data["verdict"] = verdict = p[pvalue_start:]
         else:
             data[p[:ptype_end]] = p[pvalue_start:]
-
-    #TODO: determine whether we'll relabel properties
     
     return method, verdict, data
 
@@ -704,14 +711,12 @@ def build_hop_data(header):
 
     field_count = 0
     hop_count = 0
-    current_field = None
     current_field_set = []
 
     working_hop = {}
 
     for k,v in reversed(header.items()):
         field = str.lower(k)
-        current_field = field
 
         value = " ".join(str(v).split())
 
@@ -726,7 +731,7 @@ def build_hop_data(header):
         if field in extractors.keys():
             working_hop[field] = extractors[field](value, field)
 
-        if current_field == "received":
+        if field == "received":
             working_hop["hop_index"] = hop_count
             working_hop["fields"] = current_field_set
 
