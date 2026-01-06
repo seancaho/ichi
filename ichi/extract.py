@@ -603,6 +603,28 @@ def make_received_data(field, field_n):
     return data
 
 
+authentication_properties = {
+    # SPF + AUTH
+    "smtp.mailfrom": "envelope_from",
+    "smtp.auth": "authorization_identity",
+    "smtp.helo": "smtp_greeting",
+
+    # DKIM
+    "header.d": "signing_domain",
+    "header.i": "signing_identity",
+    "header.a": "dkim_algorithm",
+    "header.s": "dkim_selector",
+    "header.b": "dkim_signature",
+
+    # DMARC
+    "action": "action",
+    "header.from": "from_domain",
+    "policy": "dmarc_policy",
+    "disposition": "dmarc_disposition",
+    "reason": "dmarc_reason",
+}
+
+
 def make_recspf_data(field, field_n):
     """
     Given a received-spf header field, fully parses the field
@@ -680,7 +702,8 @@ def authresults_details(fragment):
                     data["version"] = method_split[1]
             data["verdict"] = verdict = p[pvalue_start:]
         else:
-            data[p[:ptype_end]] = p[pvalue_start:]
+            if p[:ptype_end] in authentication_properties.keys():
+                data[authentication_properties[p[:ptype_end]]] = p[pvalue_start:]
     
     return method, verdict, data
 
@@ -715,10 +738,10 @@ def make_authresults_data(field, field_n):
                     authserv_elements.pop(a)
             
             if len(authserv_elements) == 2:
-                data["authserv"] = authserv_elements[0]
-                data["authserv_ver"] = authserv_elements[1]
+                data["authenticator"] = authserv_elements[0]
+                data["authenticator_version"] = authserv_elements[1]
             elif len(authserv_elements) == 1:
-                data["authserv"] = authserv_elements[0]
+                data["authenticator"] = authserv_elements[0]
 
         # otherwise parse expected methods
         else:
@@ -731,17 +754,25 @@ def make_authresults_data(field, field_n):
                 data[detail_label] = details
                 data[method_name] = verdict
 
-    data["type"] = field_n
+    if field_n == "authentication-results-original":
+        data["authentication_results_original"] = field_n
+    else:
+        data["authentication_results"] = field_n
 
     return data
 
 
 # map primary extraction function to field name
 extractors = {
-    "authentication-results": make_authresults_data,
-    "authentication-results-original": make_authresults_data,
-    "received-spf": make_recspf_data,
-    "received": make_received_data
+    # "header-field": (parse_function, key_for_data)
+    "authentication-results": (
+        make_authresults_data, "authentication_results"),
+    "authentication-results-original": (
+        make_authresults_data, "authentication_results_original"),
+    "received-spf": (
+        make_recspf_data, "received_spf"),
+    "received": (
+        make_received_data, "received"),
 }
 
 
@@ -774,7 +805,7 @@ def build_hop_data(header):
         field_count += 1
 
         if field in extractors.keys():
-            working_hop[field] = extractors[field](value, field)
+            working_hop[extractors[field][1]] = extractors[field][0](value, field)
 
         if field == "received":
             working_hop["hop_index"] = hop_count
