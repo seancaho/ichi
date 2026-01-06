@@ -28,9 +28,10 @@ def get_header_text(email):
     
     :param email: parsed email object
     """
-    header_str = ""
+    headers_lst = []
     for v,s in email.items():
-        header_str += str(v) + " " + str(s) + "\n"
+        headers_lst.append(f"{v} {s}")
+    header_str = "\n".join(headers_lst)
     return header_str
 
 
@@ -142,19 +143,19 @@ def make_extension(name):
         return name
 
 
-def make_attachment_data(file):
+def make_attachment_data(part):
     """
     Returns modeled information in a dictionary about an encoded file.
     
     :param file: str (encoded file)
     """
-    payload = file.get_payload(decode=True)
+    payload = part.get_payload(decode=True)
     attachment_data = {
-        "filename": file.get_filename(),
-        "file_extension": make_extension(file.get_filename()),
-        "content_type": file.get_content_type(),
+        "filename": part.get_filename(),
+        "file_extension": make_extension(part.get_filename()),
+        "content_type": part.get_content_type(),
         "size": len(payload),
-        "content_transfer_encoding": file.get("Content-Transfer-Encoding"),
+        "content_transfer_encoding": part.get("Content-Transfer-Encoding"),
         "md5": hashlib.md5(payload).hexdigest(),
         "sha1": hashlib.sha1(payload).hexdigest(),
         "sha256": hashlib.sha256(payload).hexdigest(),
@@ -183,12 +184,12 @@ def get_attachments(msg):
     attached = []
 
     for part in msg.iter_parts():
-        type = part.get_content_maintype()
+        maintype = part.get_content_maintype()
 
         if part.is_attachment() == True:
             attached.append(make_attachment_data(part))
 
-        elif type in attachment_mimetypes:
+        elif maintype in attachment_mimetypes:
             attached.append(make_attachment_data(part))
         
     return attached
@@ -459,38 +460,38 @@ def get_parenthetical_ranges(test, paren_type):
     :param test: string to test
     :param paren_type: tuple of start and end enclosure
     """
-    open = []
-    closed = []
+    open_p = []
+    closed_p = []
     left = paren_type[0]
     right = paren_type[1]
 
     if test.count(left) != test.count(right):
         #TODO: good place for debugging - 
             # unbalanced parentheses in received
-        return closed
+        return closed_p
 
     elif left == right:
         for i in range(len(test)):
-            if test[i] == left and len(open) == 0:
-                open.append((i,None))
-            elif test[i] == left and len(open) > 0:
-                open_set = open.pop(-1)
-                closed.append((open_set[0], i))
+            if test[i] == left and len(open_p) == 0:
+                open_p.append((i,None))
+            elif test[i] == left and len(open_p) > 0:
+                open_set = open_p.pop(-1)
+                closed_p.append((open_set[0], i))
 
     else:
         for i in range(len(test)):
             if test[i] == left:
-                open.append((i,None))
+                open_p.append((i,None))
             elif test[i] == right:
-                if len(open) < 1:
+                if len(open_p) < 1:
                     #TODO: good place for debugging - 
                         # close parenthesis without open
-                    closed = []
-                    return closed
-                open_set = open.pop(-1)
-                closed.append((open_set[0], i))
+                    closed_p = []
+                    return closed_p
+                open_set = open_p.pop(-1)
+                closed_p.append((open_set[0], i))
 
-    return closed
+    return closed_p
 
 
 def make_received_data(field, field_n):
@@ -552,8 +553,8 @@ def make_received_data(field, field_n):
 
     # get parenthetical ranges for delimeter exlusion
     paren_ranges = []
-    types = [("(", ")"), ("[", "]"), ("'", "'"), ('"', '"')]
-    for t in types:
+    paren_types = [("(", ")"), ("[", "]"), ("'", "'"), ('"', '"')]
+    for t in paren_types:
         if t[0] in working_field:
             paren_ranges.extend(get_parenthetical_ranges(working_field, t))
 
@@ -562,7 +563,6 @@ def make_received_data(field, field_n):
         if d in working_field:
             # find all indices for the delimiter
             found_indices = []
-            test_delim = "\b"+d+"\b"
             for match in re.finditer(rf"\b{re.escape(d)}\b", 
                                      working_field, 
                                      flags=re.IGNORECASE):
