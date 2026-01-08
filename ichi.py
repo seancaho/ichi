@@ -8,6 +8,7 @@ from email.header import decode_header, make_header
 import sys
 import logging
 import argparse
+from pprint import pprint
 
 # Local modules
 import ichi
@@ -45,14 +46,14 @@ args = parser.parse_args()
 
 
 
-def main():
+def phish():
 
     print(ichi.intro)
     print(ichi.mk_heading("ICHI START"))
     print(ichi.instruct)
 
-    email_obj, header_raw = ichi.capture_input(
-        args, config.working_directory)
+    email_obj = ichi.capture_input(args, config.working_directory)
+    header_raw = ichi.get_header_text(email_obj)
 
     print(ichi.mk_heading("CLIENT SELECTION"))
 
@@ -65,7 +66,7 @@ def main():
     evil_field_out = ichi.create_field_output(email_obj, 
                                             client_domains
                                             )
-    
+        
     # create warnings from basic info parsed
     flags = ichi.get_warnings(evil_field_out)
     printable_flags = "\n".join(flags)
@@ -106,6 +107,30 @@ def main():
 
     sys.exit()
 
+def analyze():
+
+    #print(ichi.intro)
+    print(ichi.mk_heading("ICHI START"))
+
+    email_obj = ichi.capture_input(args, config.working_directory)
+
+    hops = ichi.build_hop_data(email_obj)
+    
+    html, plaintext = ichi.get_body(email_obj)
+    
+    attachments = ichi.get_attachments(email_obj)
+
+    links, mailto = ichi.get_anchors(html)
+
+    linked_images, embedded_images = ichi.get_images(html)          
+
+    sys.exit()
+
+def main():
+    if args.cmd == "phish":
+        phish()
+    elif args.cmd == "analyze":
+        analyze()
 
 
 if __name__ == "__main__":
