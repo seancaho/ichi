@@ -777,6 +777,35 @@ def make_authresults_data(field, field_n):
 
     return data
 
+antispam_elements = {
+    "CIP": "src_ip",
+    "PTR": "srcip_reversedns",
+    "CTRY": "srcip_country",
+    "LANG": "msg_language",
+    "H": "helo_string",
+    "DIR": "direction",
+    "CAT": "threat_policy_category",
+    "SCL": "spam_confidence_level",
+    "SFV": "spam_filtering_action",
+    "SFTY": "phishing_mark"
+}
+
+def make_antispam_report(field, field_n):
+
+    data = {}
+
+    # https://learn.microsoft.com/en-us/defender-office-365/message-headers-eop-mdo
+
+    elements = field.split(";")
+
+    for e in elements:
+        partitioned = e.partition(":")
+
+        if partitioned[2] and partitioned[0] in antispam_elements.keys():
+            data[antispam_elements[partitioned[0]]] = partitioned[2]
+
+    return data
+
 
 # map primary extraction function to field name
 extractors = {
@@ -789,6 +818,8 @@ extractors = {
         make_recspf_data, "received_spf"),
     "received": (
         make_received_data, "received"),
+    "x-forefront-antispam-report": (
+        make_antispam_report, "antispam_report")
 }
 
 
