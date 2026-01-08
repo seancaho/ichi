@@ -147,15 +147,18 @@ def make_attachment_data(part):
     """
     Returns modeled information in a dictionary about an encoded file.
     
-    :param file: str (encoded file)
+    :param part: str (encoded file)
     """
-    payload = part.get_payload(decode=True)
+    if part.get_content_type() == "message/rfc822":
+        payload = part.get_content().as_bytes()
+    else:
+        payload = part.get_payload(decode=True)
     attachment_data = {
         "filename": part.get_filename(),
         "file_extension": make_extension(part.get_filename()),
         "content_type": part.get_content_type(),
         "size": len(payload),
-        "content_transfer_encoding": part.get("Content-Transfer-Encoding"),
+        "content_transfer_encoding": part["Content-Transfer-Encoding"],
         "md5": hashlib.md5(payload).hexdigest(),
         "sha1": hashlib.sha1(payload).hexdigest(),
         "sha256": hashlib.sha256(payload).hexdigest(),
@@ -171,8 +174,6 @@ def get_attachments(msg):
     
     :param msg: parsed email object
     """
-    if msg.is_multipart() == False:
-        return []
     
     attachment_mimetypes = [
         "image", 
@@ -183,14 +184,23 @@ def get_attachments(msg):
     
     attached = []
 
-    for part in msg.iter_parts():
-        maintype = part.get_content_maintype()
+    if msg.get_content_disposition() == "attachment":
+        attached.append(make_attachment_data(msg))
 
-        if part.is_attachment() == True:
-            attached.append(make_attachment_data(part))
+    def iterate_for_attachments(msg_part):
+        for part in msg_part.iter_parts():
+            maintype = part.get_content_maintype()
 
-        elif maintype in attachment_mimetypes:
-            attached.append(make_attachment_data(part))
+            if part.is_attachment() == True:
+                attached.append(make_attachment_data(part))
+
+            elif maintype in attachment_mimetypes:
+                attached.append(make_attachment_data(part))
+
+            elif maintype == "multipart":
+                iterate_for_attachments(part)
+
+    iterate_for_attachments(msg)
         
     return attached
 
@@ -340,6 +350,9 @@ def get_anchors(body):
     links = []
     mailto = []
 
+    if not body:
+        return links, mailto
+
     strainer = SoupStrainer(["a"])
     soup = BeautifulSoup(body, "html.parser", parse_only=strainer)
     anchors = soup.find_all("a")
@@ -372,6 +385,9 @@ def get_images(body):
     """
     linked_images = []
     embedded_images = []
+
+    if not body:
+        return linked_images, embedded_images
 
     strainer = SoupStrainer(["img"])
     soup = BeautifulSoup(body, "html.parser", parse_only=strainer)
