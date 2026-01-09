@@ -12,10 +12,10 @@ from .console import console
 from .input import email_from_file
 
 
-def print_loop(links, mailto, attachments, hops):
+def print_loop(links, mailto, attachments, linked_images, embedded_images, hops):
     while True:
         user_command = Prompt.ask("\nWhat else do you want to see?", choices=[
-            "links", "attachments", "hops", "full_model", "clear", "exit",
+            "links", "attachments", "images", "hops", "full_model", "clear", "exit",
         ])
         nxt = user_command.lower()
 
@@ -45,6 +45,18 @@ def print_loop(links, mailto, attachments, hops):
             else:
                 console.print(f"Attachment quantity: {len(attachments)}")
                 print(attachments)
+
+        elif nxt == "images":
+
+            if len(linked_images) == 0 and len(embedded_images) == 0:
+                    console.print("No images to display.", style="info")
+
+            else:
+                console.print(f"Linked image quantity: {len(linked_images)}")
+                print(linked_images)
+
+                console.print(f"Embedded image quantity: {len(embedded_images)}")
+                print(embedded_images)
 
         elif nxt == "hops":
 

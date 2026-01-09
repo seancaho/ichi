@@ -118,7 +118,7 @@ def analyze(source: str = "working"):
 
     #print(ichi.intro)
     #print(ichi.mk_heading("ICHI START"))
-    ichi.console.print("Main system online.\nEntering interactive mode.\n", style="info")
+    ichi.console.print("Main system: activating interactive mode.\n", style="info")
 
     email_obj = ichi.capture_input(source, config.working_directory)
 
@@ -152,7 +152,7 @@ def analyze(source: str = "working"):
             break
 
         elif nxt == "print":
-            ichi.print_loop(links, mailto, attachments, hops)
+            ichi.print_loop(links, mailto, attachments, linked_images, embedded_images, hops)
 
         elif nxt == "load":
             email_obj = ichi.loader()
