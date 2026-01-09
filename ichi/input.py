@@ -178,7 +178,7 @@ def email_from_file(filepath):
     return parsed_msg
 
 
-def capture_input(usr_args, wrk_dir):
+def capture_input(usr_input, wrk_dir):
     '''
     Primary function to capture and parse user input. 
     Returns a parsed email object.
@@ -187,14 +187,14 @@ def capture_input(usr_args, wrk_dir):
     :param wrk_dir: working directory from config file
     '''
 
-    if not usr_args.input or usr_args.input == 'clipboard':
+    if not usr_input or usr_input == 'clipboard':
         raw_txt = capture_clipboard_input()
 
         parsed_msg = Parser( 
             policy=policy.default).parsestr(
                 raw_txt)
 
-    elif usr_args.input == 'working':
+    elif usr_input == 'working':
         if wrk_dir == '/path/to/working/dir':
             wrk_dir = str(Path.home()) + '/Downloads'
         target_email = get_latest_eml(wrk_dir)
@@ -202,7 +202,7 @@ def capture_input(usr_args, wrk_dir):
         parsed_msg = email_from_file(target_email)
 
     else:
-        filepath = usr_args.input
+        filepath = usr_input
         if not isfile(filepath):
             print("Couldn't find the specified file.")
             exit()

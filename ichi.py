@@ -1,6 +1,9 @@
 #! /usr/bin/env python3
 
 # Modules requiring installation
+import typer
+from rich import print
+from rich.prompt import Prompt
 
 # Built-in modules
 from email import message_from_string
@@ -9,6 +12,7 @@ import sys
 import logging
 import argparse
 from pprint import pprint
+from os import system
 
 # Local modules
 import ichi
@@ -24,41 +28,43 @@ logging.debug('Start of program.')
 
 
 
-parser = argparse.ArgumentParser(
-                    prog='IchiScript',
-                    description='The swiss-army-knife of eml analysis.')
-parser.add_argument('cmd',
-                    help='The primary function you want to use.',
-                    type=str, 
-                    choices={"analyze", "phish", "setup", "report"},
-                    default='phish')
-parser.add_argument("-i", "--input", 
-                           help="Specify the full path of the eml file to " \
-                           "analyze, 'clipboard', or 'working' for the working " \
-                            "directory. Defaults to the most recently created " \
-                                "eml in your working directory.",
-                           type=str)
-parser.add_argument("-c", "--client",
-                            help="Manually specify the client to bypass automated check.",
-                            choices=list(config.client_info),
-                            type=str)
-args = parser.parse_args()
+# parser = argparse.ArgumentParser(
+#                     prog='IchiScript',
+#                     description='The swiss-army-knife of eml analysis.')
+# parser.add_argument('cmd',
+#                     help='The primary function you want to use.',
+#                     type=str, 
+#                     choices={"analyze", "phish", "setup", "report"},
+#                     default='phish')
+# parser.add_argument("-i", "--input", 
+#                            help="Specify the full path of the eml file to " \
+#                            "analyze, 'clipboard', or 'working' for the working " \
+#                             "directory. Defaults to the most recently created " \
+#                                 "eml in your working directory.",
+#                            type=str)
+# parser.add_argument("-c", "--client",
+#                             help="Manually specify the client to bypass automated check.",
+#                             choices=list(config.client_info),
+#                             type=str)
+# args = parser.parse_args()
 
 
+app = typer.Typer()
 
-def phish():
+
+def phish(source: str = "working"):
 
     print(ichi.intro)
     print(ichi.mk_heading("ICHI START"))
     print(ichi.instruct)
 
-    email_obj = ichi.capture_input(args, config.working_directory)
+    email_obj = ichi.capture_input(source, config.working_directory)
     header_raw = ichi.get_header_text(email_obj)
 
     print(ichi.mk_heading("CLIENT SELECTION"))
 
     client_name = ichi.client_detection(config.client_info,
-                                args.client, email_obj)
+                                source.client, email_obj)
 
     client_domains = ichi.get_client_domains(client_name, 
                                             config.client_info)
@@ -107,12 +113,14 @@ def phish():
 
     sys.exit()
 
-def analyze():
+@app.command()
+def analyze(source: str = "working"):
 
     #print(ichi.intro)
-    print(ichi.mk_heading("ICHI START"))
+    #print(ichi.mk_heading("ICHI START"))
+    ichi.console.print("Main system online.\nEntering interactive mode.\n", style="info")
 
-    email_obj = ichi.capture_input(args, config.working_directory)
+    email_obj = ichi.capture_input(source, config.working_directory)
 
     hops = ichi.build_hop_data(email_obj)
     
@@ -122,16 +130,62 @@ def analyze():
 
     links, mailto = ichi.get_anchors(html)
 
-    linked_images, embedded_images = ichi.get_images(html)          
+    linked_images, embedded_images = ichi.get_images(html)
 
-    sys.exit()
+    ichi.console.print("Loaded email:", style="info")
+    eml_subj = email_obj.get("subject")
+    eml_from = email_obj.get("from")
+    eml_to = email_obj.get("to")
 
-def main():
-    if args.cmd == "phish":
-        phish()
-    elif args.cmd == "analyze":
-        analyze()
+    ichi.console.print(f"Subject: {eml_subj}")
+    ichi.console.print(f"From: {eml_from}")
+    ichi.console.print(f"To: {eml_to}")
+
+    while True:
+        user_command = Prompt.ask("\nWhat's next?", choices=[
+            "print", "load", "exit"
+        ])
+        nxt = user_command.lower()
+
+        if nxt == "exit":
+            ichi.console.print("\nHalting interactive mode.", style="warning")
+            break
+
+        elif nxt == "print":
+            ichi.print_loop(links, mailto, attachments, hops)
+
+        elif nxt == "load":
+            email_obj = ichi.loader()
+
+            if email_obj is not None:
+
+                hops = ichi.build_hop_data(email_obj)
+                
+                html, plaintext = ichi.get_body(email_obj)
+                
+                attachments = ichi.get_attachments(email_obj)
+
+                links, mailto = ichi.get_anchors(html)
+
+                linked_images, embedded_images = ichi.get_images(html)
+
+                ichi.console.print("\nLoaded email:", style="info")
+                eml_subj = email_obj.get("subject")
+                eml_from = email_obj.get("from")
+                eml_to = email_obj.get("to")
+
+                ichi.console.print(f"Subject: {eml_subj}")
+                ichi.console.print(f"From: {eml_from}")
+                ichi.console.print(f"To: {eml_to}")
+
+    exit()
+
+# def main():
+#     if args.cmd == "phish":
+#         phish()
+#     elif args.cmd == "analyze":
+#         analyze()
 
 
 if __name__ == "__main__":
-    main()
+   app()

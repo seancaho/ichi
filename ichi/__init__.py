@@ -9,4 +9,6 @@ from .extract import get_header_text, get_body, get_attachments, \
 from .format import create_field_output, sanitize_field_output
 from .flags import get_warnings
 from .macro import get_sum_state, get_full_macro, create_meta_out
+from .console import console
+from .cli import loader, print_loop
 # __all__ = ["extract"] define api...
