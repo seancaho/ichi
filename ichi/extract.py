@@ -179,7 +179,10 @@ def get_attachments(msg):
         "image", 
         "audio", 
         "video", 
-        "application"
+        "application",
+        "calendar",
+        "csv",
+        "font"
         ]
     
     attached = []
@@ -190,11 +193,12 @@ def get_attachments(msg):
     def iterate_for_attachments(msg_part):
         for part in msg_part.iter_parts():
             maintype = part.get_content_maintype()
+            subtype = part.get_content_subtype()
 
             if part.is_attachment() == True:
                 attached.append(make_attachment_data(part))
 
-            elif maintype in attachment_mimetypes:
+            elif maintype in attachment_mimetypes or subtype in attachment_mimetypes:
                 attached.append(make_attachment_data(part))
 
             elif maintype == "multipart":
