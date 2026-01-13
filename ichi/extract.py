@@ -803,8 +803,15 @@ antispam_elements = {
 }
 
 def make_antispam_report(field, field_n):
-
+    """
+    Given a string of the Microsoft Forefront Antispam Report field,
+    return a dictionary of parsed values with known keys.
+    
+    :param field: str of field content
+    :param field_n: str of field name
+    """
     data = {}
+
 
     # https://learn.microsoft.com/en-us/defender-office-365/message-headers-eop-mdo
 
@@ -838,7 +845,13 @@ signature_properties = {
 
 
 def make_signature(field, field_n):
-
+    """
+    Given a dkim signature or similar header field, 
+    return a dictionary of parsed values with known keys.
+    
+    :param field: str of field content
+    :param field_n: str of field name
+    """
     data = {}
 
     data["type"] = field_n
