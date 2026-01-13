@@ -12,6 +12,8 @@ import hashlib
 from urllib.parse import urlsplit, parse_qs
 from base64 import b64decode
 
+from pprint import pprint
+
 authres_property = re.compile(
     r"\b[-a-zA-Z0-9\._\-#=]+\s?=\s?[-a-zA-Z0-9@:%\._\+~#=]+\b", 
     re.IGNORECASE)
@@ -642,7 +644,119 @@ authentication_properties = {
     "policy": "dmarc_policy",
     "disposition": "dmarc_disposition",
     "reason": "dmarc_reason",
+    
+    # ARC
+    "smtp.remote-ip": "connecting_server",
+    "header.oldest-pass": "oldest_valid_instance"
 }
+
+def authresults_details(part):
+    """
+    Takes part of an authentication-results header separated by method
+    and parses the included properties. Assigns significant values 
+    to known keys.
+    Returns a dictionary of structured data.
+    
+    :param part: str
+    """
+    data = {}
+    
+    # find commented ranges
+    comment_bounds = ("(", ")")
+    comment_locations = []
+    comment_locations.extend(
+        get_parenthetical_ranges(part, comment_bounds)
+    )
+
+    # remove a single comment
+    # ignore if none or more than one
+    if len(comment_locations) == 1:
+        for c in comment_locations:
+            part, comment = slice_remover(part, c, True)
+        data["comments"] = comment
+
+        # take tested IP from found comment
+        if comment:
+            ip_match = re.match(authres_clientip, comment)
+            if ip_match:
+                data["client_ip"] = ip_match.group(1)
+    
+    # find and assign data from method and properties
+    # standard for methods, properties, and results:
+    # https://datatracker.ietf.org/doc/html/rfc8601#section-2.5
+    # https://datatracker.ietf.org/doc/html/rfc8617#section-10.1
+    properties = re.findall(authres_property, part)
+
+    for i in range(len(properties)):
+        p = properties[i]
+        ptype_end = p.find("=")
+        pvalue_start = ptype_end + 1
+        if i == 0:
+            method = p[:ptype_end]
+            if "/" in method:
+                method_split = method.split("/")
+                method = method_split[0]
+                if len(method_split) == 2:
+                    data["version"] = method_split[1]
+            data["verdict"] = verdict = p[pvalue_start:]
+        else:
+            if p[:ptype_end] in authentication_properties.keys():
+                data[authentication_properties[p[:ptype_end]]] = p[pvalue_start:]
+    
+    return method, verdict, data
+
+
+def make_authresults_data(field, field_n):
+    """
+    Given an authentication-results header field, fully parses the field
+    and returns structured data in a dictionary.
+    
+    :param field: str of field content
+    :param field_n: str of field name
+    """
+    methods = ["spf", "dkim", "dmarc", "iprev", "auth", "compauth", "arc"]
+
+    data = {}
+
+    # split the field into its components
+    field_split = [i.strip() for i in field.split(";")]
+
+    for e in range(len(field_split)):
+        part = field_split[e]
+
+        # make an instance record if the first part is from ARC
+        if e == "0" and part.startswith("i="):
+            data["instance"] = part.partition("=")[2]
+        
+        # make an authentication server record if appropriate
+        elif e <2 and "=" not in part:
+            authserv_elements = part.split()
+
+            for a in range(len(authserv_elements)):
+                elem = authserv_elements[a]
+                if elem.startswith("(") and elem.endswith(")"):
+                    authserv_elements.pop(a)
+            
+            if len(authserv_elements) == 2:
+                data["authenticator"] = authserv_elements[0]
+                data["authenticator_version"] = authserv_elements[1]
+            elif len(authserv_elements) == 1:
+                data["authenticator"] = authserv_elements[0]
+
+        # otherwise parse expected methods
+        else:
+            test_method = part[:part.find("=")]
+            if "/" in test_method:
+                test_method = test_method.split("/")[0]
+            if test_method in methods:
+                method_name, verdict, details = authresults_details(part)
+                detail_label = method_name + "_details"
+                data[detail_label] = details
+                data[method_name] = verdict
+
+    data["type"] = field_n
+
+    return data
 
 
 def make_recspf_data(field, field_n):
@@ -675,112 +789,6 @@ def make_recspf_data(field, field_n):
     return data
 
 
-def authresults_details(fragment):
-    """
-    Takes a fragment of an authentication-results header and parses
-    the included elements. Returns a dictionary of structured data.
-    
-    :param fragment: str
-    """
-    data = {}
-    
-    # find commented ranges
-    comment_bounds = ("(", ")")
-    comment_locations = []
-    comment_locations.extend(
-        get_parenthetical_ranges(fragment, comment_bounds)
-    )
-
-    # remove a single comment
-    # ignore if none or more than one
-    if len(comment_locations) == 1:
-        for c in comment_locations:
-            fragment, comment = slice_remover(fragment, c, True)
-        data["comments"] = comment
-
-        # take tested IP from found comment
-        if comment:
-            ip_match = re.match(authres_clientip, comment)
-            if ip_match:
-                data["client_ip"] = ip_match.group(1)
-    
-    # find and assign data from method and properties
-    # standard for methods, properties, and results:
-    # https://datatracker.ietf.org/doc/html/rfc8601#section-2.5
-    properties = re.findall(authres_property, fragment)
-
-    for i in range(len(properties)):
-        p = properties[i]
-        ptype_end = p.find("=")
-        pvalue_start = ptype_end + 1
-        if i == 0:
-            method = p[:ptype_end]
-            if "/" in method:
-                method_split = method.split("/")
-                method = method_split[0]
-                if len(method_split) == 2:
-                    data["version"] = method_split[1]
-            data["verdict"] = verdict = p[pvalue_start:]
-        else:
-            if p[:ptype_end] in authentication_properties.keys():
-                data[authentication_properties[p[:ptype_end]]] = p[pvalue_start:]
-    
-    return method, verdict, data
-
-
-def make_authresults_data(field, field_n):
-    """
-    Given an authentication-results header field, fully parses the field
-    and returns structured data in a dictionary.
-    
-    :param field: str of field content
-    :param field_n: str of field name
-    """
-    methods = [ "spf", "dkim", "dmarc", "iprev", "auth", "compauth"]
-
-    data = {}
-
-    # split the field into its components
-    field_split = [i.strip() for i in field.split(";")]
-
-    for e in range(len(field_split)):
-        f = field_split[e]
-
-        # make an authentication server record if the first element
-        # appears to be one
-        if e == 0 and "=" not in f:
-
-            authserv_elements = f.split()
-
-            for a in range(len(authserv_elements)):
-                elem = authserv_elements[a]
-                if elem.startswith("(") and elem.endswith(")"):
-                    authserv_elements.pop(a)
-            
-            if len(authserv_elements) == 2:
-                data["authenticator"] = authserv_elements[0]
-                data["authenticator_version"] = authserv_elements[1]
-            elif len(authserv_elements) == 1:
-                data["authenticator"] = authserv_elements[0]
-
-        # otherwise parse expected methods
-        else:
-            test_method = f[:f.find("=")]
-            if "/" in test_method:
-                test_method = test_method.split("/")[0]
-            if test_method in methods:
-                method_name, verdict, details = authresults_details(f)
-                detail_label = method_name + "_details"
-                data[detail_label] = details
-                data[method_name] = verdict
-
-    if field_n == "authentication-results-original":
-        data["authentication_results_original"] = field_n
-    else:
-        data["authentication_results"] = field_n
-
-    return data
-
 antispam_elements = {
     "CIP": "src_ip",
     "PTR": "srcip_reversedns",
@@ -800,13 +808,48 @@ def make_antispam_report(field, field_n):
 
     # https://learn.microsoft.com/en-us/defender-office-365/message-headers-eop-mdo
 
-    elements = field.split(";")
+    elements = [e.strip() for e in field.split(";")]
 
     for e in elements:
         partitioned = e.partition(":")
 
         if partitioned[2] and partitioned[0] in antispam_elements.keys():
             data[antispam_elements[partitioned[0]]] = partitioned[2]
+
+    return data
+
+
+# https://knowledge.broadcom.com/external/article/152351/structure-of-the-dkimsignature-header.html
+signature_properties = {
+    "v": "version",
+    "a": "hash_algorithm",
+    "d": "signing_domain",
+    "s": "key_selector",
+    "c": "canon_scheme",
+    "q": "query_method",
+    "i": "identity",
+    "t": "epoch_time",
+    "h": "hashed_headers",
+    "bh": "body_hash",
+    "b": "signature",
+    "i": "instance",
+    "cv": "chain_validation"
+}
+
+
+def make_signature(field, field_n):
+
+    data = {}
+
+    data["type"] = field_n
+
+    properties = [f.strip() for f in field.split(";")]
+
+    for p in properties:
+        parts = p.partition("=")
+
+        if parts[2] and parts[0] in signature_properties.keys():
+            data[signature_properties[parts[0]]] = parts[2]
 
     return data
 
@@ -820,10 +863,20 @@ extractors = {
         make_authresults_data, "authentication_results_original"),
     "received-spf": (
         make_recspf_data, "received_spf"),
+    "dkim-signature": (
+        make_signature, "dkim_signature"),
+    "x-google-dkim-signature": (
+        make_signature, "google_dkim_signature"),
+    "arc-authentication-results": (
+        make_authresults_data, "arc_authentication_results"),
+    "arc-message-signature": (
+        make_signature, "arc_signature"),
+    "arc-seal": (
+        make_signature, "arc_seal"),
     "received": (
         make_received_data, "received"),
     "x-forefront-antispam-report": (
-        make_antispam_report, "antispam_report")
+        make_antispam_report, "microsoft_antispam_report")
 }
 
 
