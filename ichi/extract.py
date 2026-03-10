@@ -333,15 +333,15 @@ def make_embedded_data(embed):
     extension = filetype.split("/")[-1]
 
     if encoding == "base64":
-        decoded_data = b64decode(data)
+        data = b64decode(data)
 
     embed_data = {
         "file_extension": extension,
-        "size": len(decoded_data),
+        "size": len(data),
         "encoding": encoding,
-        "md5": hashlib.md5(decoded_data).hexdigest(),
-        "sha1": hashlib.sha1(decoded_data).hexdigest(),
-        "sha256": hashlib.sha256(decoded_data).hexdigest(),
+        "md5": hashlib.md5(data).hexdigest(),
+        "sha1": hashlib.sha1(data).hexdigest(),
+        "sha256": hashlib.sha256(data).hexdigest(),
     }
     return embed_data
 
