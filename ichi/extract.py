@@ -363,18 +363,23 @@ def get_anchors(body):
     soup = BeautifulSoup(body, "html.parser", parse_only=strainer)
     anchors = soup.find_all("a")
 
+    mail_set = set()
     link_set = set()
+
     for a in anchors:
         testurla = a.get("href")
         testurlb = a.get("originalsrc")
 
         if testurla.startswith("mailto:"):
-            mailto.append(make_mailto_data(a))
+            if testurla not in mail_set:
+                mailto.append(make_mailto_data(a))
+                mail_set.add(testurla)
 
         elif testurlb:
             if testurlb not in link_set:
                 links.append(make_link_data(a))
                 link_set.add(testurlb)
+
         elif testurla and testurla not in link_set:
             links.append(make_link_data(a))
             link_set.add(testurla)            
