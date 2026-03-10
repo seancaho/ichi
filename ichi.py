@@ -23,30 +23,7 @@ logging.disable(logging.CRITICAL)
 logging.debug('Start of program.')
 
 
-
-parser = argparse.ArgumentParser(
-                    prog='IchiScript',
-                    description='The swiss-army-knife of eml analysis.')
-parser.add_argument('cmd',
-                    help='The primary function you want to use.',
-                    type=str, 
-                    choices={"analyze", "phish", "setup", "report"},
-                    default='phish')
-parser.add_argument("-i", "--input", 
-                           help="Specify the full path of the eml file to " \
-                           "analyze, 'clipboard', or 'working' for the working " \
-                            "directory. Defaults to the most recently created " \
-                                "eml in your working directory.",
-                           type=str)
-parser.add_argument("-c", "--client",
-                            help="Manually specify the client to bypass automated check.",
-                            choices=list(config.client_info),
-                            type=str)
-args = parser.parse_args()
-
-
-
-def phish():
+def phish(args):
 
     print(ichi.intro)
     print(ichi.mk_heading("ICHI START"))
@@ -107,7 +84,7 @@ def phish():
 
     sys.exit()
 
-def analyze():
+def analyze(args):
 
     #print(ichi.intro)
     print(ichi.mk_heading("ICHI START"))
@@ -127,10 +104,32 @@ def analyze():
     sys.exit()
 
 def main():
-    if args.cmd == "phish":
-        phish()
-    elif args.cmd == "analyze":
-        analyze()
+
+    parser = argparse.ArgumentParser(
+                    prog='IchiScript',
+                    description='The swiss-army-knife of eml analysis.')
+    parser.add_argument('cmd',
+                        help='The primary function you want to use.',
+                        type=str, 
+                        choices={"analyze", "phish", "setup", "report"},
+                        default='phish')
+    parser.add_argument("-i", "--input", 
+                            help="Specify the full path of the eml file to " \
+                            "analyze, 'clipboard', or 'working' for the working " \
+                                "directory. Defaults to the most recently created " \
+                                    "eml in your working directory.",
+                            type=str)
+    parser.add_argument("-c", "--client",
+                                help="Manually specify the client to bypass automated check.",
+                                choices=list(config.client_info),
+                                type=str)
+    args_in = parser.parse_args()
+
+    if args_in.cmd == "phish":
+        phish(args_in)
+
+    elif args_in.cmd == "analyze":
+        analyze(args_in)
 
 
 if __name__ == "__main__":
