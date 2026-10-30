@@ -723,6 +723,8 @@ def make_authresults_data(field, field_n):
 
     data = {}
 
+    data["ftype"] = field_n
+
     # split the field into its components
     field_split = [i.strip() for i in field.split(";")]
 
@@ -759,8 +761,6 @@ def make_authresults_data(field, field_n):
                 data[detail_label] = details
                 data[method_name] = verdict
 
-    data["type"] = field_n
-
     return data
 
 
@@ -773,6 +773,9 @@ def make_recspf_data(field, field_n):
     :param field_n: str of field name
     """
     data = {}
+
+    data["ftype"] = field_n
+
     recspf_properties = {
         "helo": "smtp_greeting",
         "client-ip": "client_ip",
@@ -817,6 +820,7 @@ def make_antispam_report(field, field_n):
     """
     data = {}
 
+    data["ftype"] = field_n
 
     # https://learn.microsoft.com/en-us/defender-office-365/message-headers-eop-mdo
 
@@ -859,7 +863,7 @@ def make_signature(field, field_n):
     """
     data = {}
 
-    data["type"] = field_n
+    data["ftype"] = field_n
 
     properties = [f.strip() for f in field.split(";")]
 
