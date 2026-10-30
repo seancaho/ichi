@@ -911,6 +911,7 @@ def build_hop_data(header):
     hop_count = 0
     current_field_set = []
 
+    prior_hop = {}
     working_hop = {}
 
     for k,v in reversed(header.items()):
@@ -930,13 +931,27 @@ def build_hop_data(header):
             working_hop[extractors[field][1]] = extractors[field][0](value, field)
 
         if field == "received":
+
+            if prior_hop != {}:
+                hops.append(prior_hop)
+
             working_hop["hop_index"] = hop_count
             working_hop["fields"] = current_field_set
 
-            hops.append(working_hop)
+            #hops.append(working_hop)
+            prior_hop = working_hop
 
             current_field_set = []
             working_hop = {}
             hop_count += 1
+
+    if current_field_set:                   # fields above final Received
+        if prior_hop:
+            prior_hop["fields"].extend(current_field_set)
+            prior_hop.update(working_hop)   # parsed leftovers
+        else:                               # header had no Received at all
+            prior_hop = {**working_hop, "hop_index": hop_count, "fields": current_field_set}
+    if prior_hop:
+        hops.append(prior_hop)
 
     return hops
